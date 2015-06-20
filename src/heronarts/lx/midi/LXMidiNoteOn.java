@@ -22,7 +22,7 @@ import javax.sound.midi.ShortMessage;
 
 public class LXMidiNoteOn extends LXMidiNote {
 
-  LXMidiNoteOn(ShortMessage message) {
+  public LXMidiNoteOn(ShortMessage message) {
     super(message, ShortMessage.NOTE_ON);
   }
 
