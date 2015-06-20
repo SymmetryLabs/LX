@@ -225,7 +225,7 @@ public class LXEngine extends LXParameterized {
    *
    * @return Whether the engine is threaded
    */
-  public synchronized boolean isThreaded() {
+  public boolean isThreaded() {
     return this.isThreaded;
   }
 
