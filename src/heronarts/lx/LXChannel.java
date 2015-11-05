@@ -30,6 +30,10 @@ import heronarts.lx.transition.LXTransition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
 
 /**
  * A channel is a single component of the engine that has a set of patterns from
@@ -139,6 +143,8 @@ public class LXChannel extends LXComponent {
 
   private final List<Listener> listeners = new ArrayList<Listener>();
 
+  private final ReadWriteUpdateLock channelModificationLock = new ReentrantReadWriteUpdateLock();
+
   LXChannel(LX lx, int index, LXPattern[] patterns) {
     super(lx);
     this.lx = lx;
@@ -168,117 +174,196 @@ public class LXChannel extends LXComponent {
     }
   }
 
-  public synchronized final void addListener(Listener listener) {
-    this.listeners.add(listener);
+  public final void addListener(Listener listener) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.listeners.add(listener);
+    } finally {
+      l.unlock();
+    }
   }
 
-  public synchronized final void removeListener(Listener listener) {
-    this.listeners.remove(listener);
+  public final void removeListener(Listener listener) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.listeners.remove(listener);
+    } finally {
+      l.unlock();
+    }
   }
 
-  final synchronized LXChannel setIndex(int index) {
-    this.index = index;
+  final LXChannel setIndex(int index) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.index = index;
+    } finally {
+      l.unlock();
+    }
     return this;
   }
 
-  public synchronized final int getIndex() {
-    return this.index;
+  public final int getIndex() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.index;
+    } finally {
+      unlock(l);
+    }
   }
 
   public final BasicParameter getFader() {
     return this.fader;
   }
 
-  public synchronized final LXTransition getFaderTransition() {
-    return this.faderTransition;
+  public final LXTransition getFaderTransition() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.faderTransition;
+    } finally {
+      unlock(l);
+    }
   }
 
-  public synchronized final LXChannel setFaderTransition(LXTransition transition) {
-    if (this.faderTransition != transition) {
-      this.faderTransition = transition;
+  public final LXChannel setFaderTransition(LXTransition transition) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      if (this.faderTransition != transition) {
+        this.faderTransition = transition;
+        for (Listener listener : this.listeners) {
+          listener.faderTransitionDidChange(this, this.faderTransition);
+        }
+      }
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public final LXChannel addEffect(LXEffect effect) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.effects.add(effect);
       for (Listener listener : this.listeners) {
-        listener.faderTransitionDidChange(this, this.faderTransition);
+        listener.effectAdded(this, effect);
       }
+    } finally {
+      l.unlock();
     }
     return this;
   }
 
-  public synchronized final LXChannel addEffect(LXEffect effect) {
-    this.effects.add(effect);
-    for (Listener listener : this.listeners) {
-      listener.effectAdded(this, effect);
-    }
-    return this;
-  }
-
-  public synchronized final LXChannel removeEffect(LXEffect effect) {
-    this.effects.remove(effect);
-    for (Listener listener : this.listeners) {
-      listener.effectRemoved(this, effect);
-    }
-    return this;
-  }
-
-  public synchronized final List<LXEffect> getEffects() {
-    return this.unmodifiableEffects;
-  }
-
-  public synchronized final List<LXPattern> getPatterns() {
-    return this.unmodifiablePatterns;
-  }
-
-  public synchronized final LXPattern getPattern(String className) {
-    for (LXPattern pattern : this.unmodifiablePatterns) {
-      if (pattern.getClass().getName().equals(className)) {
-        return pattern;
+  public final LXChannel removeEffect(LXEffect effect) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.effects.remove(effect);
+      for (Listener listener : this.listeners) {
+        listener.effectRemoved(this, effect);
       }
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public final List<LXEffect> getEffects() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.unmodifiableEffects;
+    } finally {
+      unlock(l);
+    }
+  }
+
+  public final List<LXPattern> getPatterns() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.unmodifiablePatterns;
+    } finally {
+      unlock(l);
+    }
+  }
+
+  public final LXPattern getPattern(String className) {
+    Lock l = this.acquireReadLock();
+    try {
+      for (LXPattern pattern : this.unmodifiablePatterns) {
+        if (pattern.getClass().getName().equals(className)) {
+          return pattern;
+        }
+      }
+    } finally {
+      unlock(l);
     }
     return null;
   }
 
-  public synchronized final LXChannel setPatterns(LXPattern[] patterns) {
-    getActivePattern().onInactive();
-    _updatePatterns(patterns);
-    this.activePatternIndex = this.nextPatternIndex = 0;
-    this.transition = null;
-    getActivePattern().onActive();
-    return this;
-  }
-
-  public synchronized final LXChannel addPattern(LXPattern pattern) {
-    pattern.setChannel(this);
-    ((LXComponent)pattern).setModel(this.model);
-    ((LXComponent)pattern).setPalette(this.palette);
-    this.patterns.add(pattern);
-    for (Listener listener : this.listeners) {
-      listener.patternAdded(this, pattern);
+  public final LXChannel setPatterns(LXPattern[] patterns) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      getActivePattern().onInactive();
+      _updatePatterns(patterns);
+      this.activePatternIndex = this.nextPatternIndex = 0;
+      this.transition = null;
+      getActivePattern().onActive();
+    } finally {
+      l.unlock();
     }
     return this;
   }
 
-  public synchronized final LXChannel removePattern(LXPattern pattern) {
-    if (this.patterns.size() <= 1) {
-      throw new UnsupportedOperationException("LXChannel must have at least one pattern");
-    }
-    int index = this.patterns.indexOf(pattern);
-    if (index >= 0) {
-      this.patterns.remove(index);
-      pattern.setChannel(null);
-      if (this.activePatternIndex >= index) {
-        --this.activePatternIndex;
-        if (this.activePatternIndex < 0) {
-          this.activePatternIndex = this.patterns.size() - 1;
-        }
-      }
-      if (this.nextPatternIndex >= index) {
-        --this.nextPatternIndex;
-        if (this.nextPatternIndex < 0) {
-          this.nextPatternIndex = this.patterns.size() - 1;
-        }
-      }
+  public final LXChannel addPattern(LXPattern pattern) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      pattern.setChannel(this);
+      ((LXComponent)pattern).setModel(this.model);
+      ((LXComponent)pattern).setPalette(this.palette);
+      this.patterns.add(pattern);
       for (Listener listener : this.listeners) {
-        listener.patternRemoved(this, pattern);
+        listener.patternAdded(this, pattern);
       }
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public final LXChannel removePattern(LXPattern pattern) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      if (this.patterns.size() <= 1) {
+        throw new UnsupportedOperationException("LXChannel must have at least one pattern");
+      }
+      int index = this.patterns.indexOf(pattern);
+      if (index >= 0) {
+        this.patterns.remove(index);
+        pattern.setChannel(null);
+        if (this.activePatternIndex >= index) {
+          --this.activePatternIndex;
+          if (this.activePatternIndex < 0) {
+            this.activePatternIndex = this.patterns.size() - 1;
+          }
+        }
+        if (this.nextPatternIndex >= index) {
+          --this.nextPatternIndex;
+          if (this.nextPatternIndex < 0) {
+            this.nextPatternIndex = this.patterns.size() - 1;
+          }
+        }
+        for (Listener listener : this.listeners) {
+          listener.patternRemoved(this, pattern);
+        }
+      }
+    } finally {
+      l.unlock();
     }
     return this;
   }
@@ -299,193 +384,310 @@ public class LXChannel extends LXComponent {
     }
   }
 
-  public synchronized final int getActivePatternIndex() {
-    return this.activePatternIndex;
-  }
-
-  public synchronized final LXPattern getActivePattern() {
-    return this.patterns.get(this.activePatternIndex);
-  }
-
-  public synchronized final int getNextPatternIndex() {
-    return this.nextPatternIndex;
-  }
-
-  public synchronized final LXPattern getNextPattern() {
-    return this.patterns.get(this.nextPatternIndex);
-  }
-
-  protected synchronized final LXTransition getActiveTransition() {
-    return this.transition;
-  }
-
-  public synchronized final LXChannel goPrev() {
-    if (this.transition != null) {
-      return this;
+  public final int getActivePatternIndex() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.activePatternIndex;
+    } finally {
+      unlock(l);
     }
-    this.nextPatternIndex = this.activePatternIndex - 1;
-    if (this.nextPatternIndex < 0) {
-      this.nextPatternIndex = this.patterns.size() - 1;
-    }
-    startTransition();
-    return this;
   }
 
-  public synchronized final LXChannel goNext() {
-    if (this.transition != null) {
-      return this;
+  public final LXPattern getActivePattern() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.patterns.get(this.activePatternIndex);
+    } finally {
+      unlock(l);
     }
-    this.nextPatternIndex = this.activePatternIndex;
-    do {
-      this.nextPatternIndex = (this.nextPatternIndex + 1)
-          % this.patterns.size();
-    } while ((this.nextPatternIndex != this.activePatternIndex)
-        && !getNextPattern().isEligible());
-    if (this.nextPatternIndex != this.activePatternIndex) {
-      startTransition();
-    }
-    return this;
   }
 
-  public synchronized final LXChannel goPattern(LXPattern pattern) {
-    int pi = 0;
-    for (LXPattern p : this.patterns) {
-      if (p == pattern) {
-        return goIndex(pi);
+  public final int getNextPatternIndex() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.nextPatternIndex;
+    } finally {
+      unlock(l);
+    }
+  }
+
+  public final LXPattern getNextPattern() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.patterns.get(this.nextPatternIndex);
+    } finally {
+      unlock(l);
+    }
+  }
+
+  protected final LXTransition getActiveTransition() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.transition;
+    } finally {
+      unlock(l);
+    }
+  }
+
+  public final LXChannel goPrev() {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      if (this.transition != null) {
+        return this;
       }
-      ++pi;
+      this.nextPatternIndex = this.activePatternIndex - 1;
+      if (this.nextPatternIndex < 0) {
+        this.nextPatternIndex = this.patterns.size() - 1;
+      }
+      startTransition();
+    } finally {
+      l.unlock();
     }
     return this;
   }
 
-  public synchronized final LXChannel goIndex(int i) {
-    if (this.transition != null) {
-      return this;
+  public final LXChannel goNext() {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      if (this.transition != null) {
+        return this;
+      }
+      this.nextPatternIndex = this.activePatternIndex;
+      do {
+        this.nextPatternIndex = (this.nextPatternIndex + 1)
+            % this.patterns.size();
+      } while ((this.nextPatternIndex != this.activePatternIndex)
+          && !getNextPattern().isEligible());
+      if (this.nextPatternIndex != this.activePatternIndex) {
+        startTransition();
+      }
+    } finally {
+      l.unlock();
     }
-    if (i < 0 || i >= this.patterns.size()) {
-      return this;
-    }
-    this.nextPatternIndex = i;
-    startTransition();
     return this;
   }
 
-  public synchronized LXChannel disableAutoTransition() {
-    this.autoTransitionEnabled.setValue(false);
+  public final LXChannel goPattern(LXPattern pattern) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      int pi = 0;
+      for (LXPattern p : this.patterns) {
+        if (p == pattern) {
+          return goIndex(pi);
+        }
+        ++pi;
+      }
+    } finally {
+      l.unlock();
+    }
     return this;
   }
 
-  public synchronized LXChannel enableAutoTransition(int autoTransitionThreshold) {
-    this.autoTransitionThreshold = autoTransitionThreshold;
-    if (!this.autoTransitionEnabled.isOn()) {
-      this.autoTransitionEnabled.setValue(true);
+  public final LXChannel goIndex(int i) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      if (this.transition != null) {
+        return this;
+      }
+      if (i < 0 || i >= this.patterns.size()) {
+        return this;
+      }
+      this.nextPatternIndex = i;
+      startTransition();
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public LXChannel disableAutoTransition() {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.autoTransitionEnabled.setValue(false);
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public LXChannel enableAutoTransition(int autoTransitionThreshold) {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      this.autoTransitionThreshold = autoTransitionThreshold;
+      if (!this.autoTransitionEnabled.isOn()) {
+        this.autoTransitionEnabled.setValue(true);
+        if (this.transition == null) {
+          this.transitionMillis = System.currentTimeMillis();
+        }
+      }
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public int getAutoTransitionThreshold() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.autoTransitionThreshold;
+    } finally {
+      unlock(l);
+    }
+  }
+
+  public boolean isAutoTransitionEnabled() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.autoTransitionEnabled.isOn();
+    } finally {
+      unlock(l);
+    }
+  }
+
+  private void startTransition() {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      LXPattern activePattern = getActivePattern();
+      LXPattern nextPattern = getNextPattern();
+      if (activePattern == nextPattern) {
+        return;
+      }
+      nextPattern.onActive();
+      for (Listener listener : this.listeners) {
+        listener.patternWillChange(this, activePattern, nextPattern);
+      }
+      this.transition = nextPattern.getTransition();
       if (this.transition == null) {
+        finishTransition();
+      } else {
+        nextPattern.onTransitionStart();
+        this.transition.blend(activePattern.getColors(), nextPattern.getColors(), 0);
         this.transitionMillis = System.currentTimeMillis();
       }
+    } finally {
+      l.unlock();
     }
-    return this;
   }
 
-  public synchronized int getAutoTransitionThreshold() {
-    return this.autoTransitionThreshold;
-  }
-
-  public synchronized boolean isAutoTransitionEnabled() {
-    return this.autoTransitionEnabled.isOn();
-  }
-
-  private synchronized void startTransition() {
-    LXPattern activePattern = getActivePattern();
-    LXPattern nextPattern = getNextPattern();
-    if (activePattern == nextPattern) {
-      return;
-    }
-    nextPattern.onActive();
-    for (Listener listener : this.listeners) {
-      listener.patternWillChange(this, activePattern, nextPattern);
-    }
-    this.transition = nextPattern.getTransition();
-    if (this.transition == null) {
-      finishTransition();
-    } else {
-      nextPattern.onTransitionStart();
-      this.transition.blend(activePattern.getColors(), nextPattern.getColors(), 0);
+  private void finishTransition() {
+    Lock l = this.channelModificationLock.writeLock();
+    l.lock();
+    try {
+      getActivePattern().onInactive();
+      this.activePatternIndex = this.nextPatternIndex;
+      LXPattern activePattern = getActivePattern();
+      if (this.transition != null) {
+        activePattern.onTransitionEnd();
+      }
+      this.transition = null;
       this.transitionMillis = System.currentTimeMillis();
-    }
-  }
-
-  private synchronized void finishTransition() {
-    getActivePattern().onInactive();
-    this.activePatternIndex = this.nextPatternIndex;
-    LXPattern activePattern = getActivePattern();
-    if (this.transition != null) {
-      activePattern.onTransitionEnd();
-    }
-    this.transition = null;
-    this.transitionMillis = System.currentTimeMillis();
-    for (Listener listener : listeners) {
-      listener.patternDidChange(this, activePattern);
+      for (Listener listener : listeners) {
+        listener.patternDidChange(this, activePattern);
+      }
+    } finally {
+      l.unlock();
     }
   }
 
   @Override
-  public synchronized void loop(double deltaMs) {
-    long loopStart = System.nanoTime();
+  public void loop(double deltaMs) {
+    Lock l = this.channelModificationLock.updateLock();
+    l.lock();
+    try {
+      long loopStart = System.nanoTime();
 
-    // Run modulators and components
-    super.loop(deltaMs);
+      // Run modulators and components
+      super.loop(deltaMs);
 
-    // Run active pattern
-    LXPattern activePattern = getActivePattern();
-    activePattern.loop(deltaMs);
+      // Run active pattern
+      LXPattern activePattern = getActivePattern();
+      activePattern.loop(deltaMs);
 
-    // Run transition if applicable
-    if (this.transition != null) {
-      int transitionMs = (int) (this.lx.engine.nowMillis - this.transitionMillis);
-      if (transitionMs >= this.transition.getDuration()) {
-        finishTransition();
+      // Run transition if applicable
+      if (this.transition != null) {
+        int transitionMs = (int) (this.lx.engine.nowMillis - this.transitionMillis);
+        if (transitionMs >= this.transition.getDuration()) {
+          finishTransition();
+        } else {
+          getNextPattern().loop(deltaMs);
+          this.transition.loop(deltaMs);
+          this.transition.blend(
+            getActivePattern().getColors(),
+            getNextPattern().getColors(),
+            transitionMs / this.transition.getDuration()
+          );
+        }
       } else {
-        getNextPattern().loop(deltaMs);
-        this.transition.loop(deltaMs);
-        this.transition.blend(
-          getActivePattern().getColors(),
-          getNextPattern().getColors(),
-          transitionMs / this.transition.getDuration()
-        );
+        if (this.autoTransitionEnabled.isOn() &&
+            (this.lx.engine.nowMillis - this.transitionMillis > this.autoTransitionThreshold)) {
+          goNext();
+        }
       }
-    } else {
-      if (this.autoTransitionEnabled.isOn() &&
-          (this.lx.engine.nowMillis - this.transitionMillis > this.autoTransitionThreshold)) {
-        goNext();
+
+      int[] colors = (this.transition != null) ? this.transition.getColors() : getActivePattern().getColors();
+
+      if (this.effects.size() > 0) {
+        int[] array = this.buffer.getArray();
+        for (int i = 0; i < colors.length; ++i) {
+          array[i] = colors[i];
+        }
+        colors = array;
+        for (LXEffect effect : this.effects) {
+          ((LXLayeredComponent)effect).setBuffer(this.buffer);
+          effect.loop(deltaMs);
+        }
       }
+
+      this.colors = colors;
+
+      this.timer.loopNanos = System.nanoTime() - loopStart;
+    } finally {
+      l.unlock();
     }
-
-    int[] colors = (this.transition != null) ? this.transition.getColors() : getActivePattern().getColors();
-
-    if (this.effects.size() > 0) {
-      int[] array = this.buffer.getArray();
-      for (int i = 0; i < colors.length; ++i) {
-        array[i] = colors[i];
-      }
-      colors = array;
-      for (LXEffect effect : this.effects) {
-        ((LXLayeredComponent)effect).setBuffer(this.buffer);
-        effect.loop(deltaMs);
-      }
-    }
-
-    this.colors = colors;
-
-    this.timer.loopNanos = System.nanoTime() - loopStart;
   }
 
-  public synchronized int[] getColors() {
-    return this.colors;
+  public int[] getColors() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.colors;
+    } finally {
+      unlock(l);
+    }
   }
 
-  public synchronized void copyColors(int[] copy) {
-    for (int i = 0; i < this.colors.length; ++i) {
-      copy[i] = this.colors[i];
+  public void copyColors(int[] copy) {
+    Lock l = this.acquireReadLock();
+    try {
+      for (int i = 0; i < this.colors.length; ++i) {
+        copy[i] = this.colors[i];
+      }
+    } finally {
+      unlock(l);
+    }
+  }
+
+  private Lock acquireReadLock() {
+    Lock l = this.channelModificationLock.readLock();
+    try {
+      l.lock();
+    } catch (IllegalStateException e) {
+      // Current thread already holding update lock.
+      // Safe to skip getting read lock
+      return null;
+    }
+    return l;
+  }
+
+  private void unlock(Lock l) {
+    if (l != null) {
+      l.unlock();
     }
   }
 
