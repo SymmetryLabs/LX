@@ -234,13 +234,23 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     this.engine = engine;
     registerEngine();
     for (LXChannel channel : engine.getChannels()) {
-      registerChannel(channel);
+      registerChannel(channel, false);
     }
     for (LXEffect effect : engine.getEffects()) {
       registerComponent("effect/" + effect.getClass().getName(), effect);
     }
     engine.midiEngine.addListener(this);
     engine.addMessageListener(this);
+  }
+
+  public LXAutomationRecorder(LXEngine engine, LXChannel channel) {
+    this.engine = engine;
+    registerChannel(channel, true);
+  }
+
+  public LXAutomationRecorder(LXEngine engine, LXPattern pattern) {
+    this.engine = engine;
+    registerPattern(null, pattern);
   }
 
   private LXAutomationRecorder registerEngine() {
@@ -252,8 +262,11 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     return this;
   }
 
-  private LXAutomationRecorder registerChannel(LXChannel channel) {
-    String path = "channel/" + channel.getIndex();
+  private LXAutomationRecorder registerChannel(LXChannel channel, boolean onlyChannel) {
+    String path = "channel";
+    if (!onlyChannel) {
+      path += "/" + channel.getIndex();
+    }
     this.channels.add(channel);
     channel.addListener(new LXChannel.AbstractListener() {
       @Override
@@ -267,8 +280,18 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     registerParameter(path + "/fader", channel.getFader());
     registerComponent(path + "/fader", channel.getFaderTransition());
     for (LXPattern pattern : channel.getPatterns()) {
-      registerComponent(path + "/pattern/" + pattern.getClass().getName(), pattern);
+      registerPattern(path, pattern);
     }
+    return this;
+  }
+
+  private LXAutomationRecorder registerPattern(String path, LXPattern pattern) {
+    if (path != null) {
+      path += "/";
+    } else {
+      path = "";
+    }
+    registerComponent(path + "pattern/" + pattern.getClass().getName(), pattern);
     return this;
   }
 
