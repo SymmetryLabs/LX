@@ -375,6 +375,12 @@ public class LXChannel extends LXComponent {
     if (patterns.length == 0) {
       throw new IllegalArgumentException("LXChannel must have at least one pattern");
     }
+    for (LXPattern pattern : this.patterns) {
+      pattern.setChannel(null);
+      for (Listener listener : this.listeners) {
+        listener.patternRemoved(this, pattern);
+      }
+    }
     this.patterns.clear();
     for (LXPattern pattern : patterns) {
       if (pattern == null) {
