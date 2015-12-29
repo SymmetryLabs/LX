@@ -63,7 +63,8 @@ public abstract class LXPattern extends LXBufferedComponent {
    */
   @Override
   public String getName() {
-    String simple = getClass().getSimpleName();
+    String[] parts = getClass().getName().split("[\\.|\\$]");
+    String simple = parts[parts.length-1];
     int index = simple.indexOf("Pattern");
     if (index >= 0) {
       simple = simple.substring(0, index);

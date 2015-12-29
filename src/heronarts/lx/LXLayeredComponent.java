@@ -71,7 +71,8 @@ public abstract class LXLayeredComponent extends LXComponent implements LXLoopTa
   }
 
   public String getName() {
-    return getClass().getSimpleName();
+    String[] parts = getClass().getName().split("[\\.|\\$]");
+    return parts[parts.length-1];
   }
 
   @Override
