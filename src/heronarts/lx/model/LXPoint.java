@@ -95,9 +95,39 @@ public class LXPoint {
    * @param x
    * @param y
    * @param z
+   * @param index
+   */
+  public LXPoint(float x, float y, float z, int index) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.r = (float) Math.sqrt(x * x + y * y);
+    this.theta = (float) ((Math.PI * 2 + Math.atan2(y, x)) % (Math.PI * 2));
+    this.ztheta = (float) ((Math.PI * 2 + Math.atan2(z, x)) % (Math.PI * 2));
+    this.index = index;
+  }
+
+  /**
+   * Construct a point in 3-d space
+   *
+   * @param x
+   * @param y
+   * @param z
    */
   public LXPoint(double x, double y, double z) {
     this((float) x, (float) y, (float) z);
+  }
+
+  /**
+   * Construct a point in 3-d space
+   *
+   * @param x
+   * @param y
+   * @param z
+   * @param index
+   */
+  public LXPoint(double x, double y, double z, int index) {
+    this((float) x, (float) y, (float) z, index);
   }
 
   /**
