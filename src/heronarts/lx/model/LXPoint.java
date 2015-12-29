@@ -65,8 +65,8 @@ public class LXPoint {
   /**
    * Construct a point in 2-d space, z-val is 0
    *
-   * @param x
-   * @param y
+   * @param x X-coordinate
+   * @param y Y-coordinate
    */
   public LXPoint(float x, float y) {
     this(x, y, 0);
@@ -75,9 +75,9 @@ public class LXPoint {
   /**
    * Construct a point in 3-d space
    *
-   * @param x
-   * @param y
-   * @param z
+   * @param x X-coordinate
+   * @param y Y-coordinate
+   * @param z Z-coordinate
    */
   public LXPoint(float x, float y, float z) {
     this.x = x;
@@ -92,10 +92,10 @@ public class LXPoint {
   /**
    * Construct a point in 3-d space
    *
-   * @param x
-   * @param y
-   * @param z
-   * @param index
+   * @param x X-coordinate
+   * @param y Y-coordinate
+   * @param z Z-coordinate
+   * @param index Index in colors array
    */
   public LXPoint(float x, float y, float z, int index) {
     this.x = x;
@@ -110,9 +110,9 @@ public class LXPoint {
   /**
    * Construct a point in 3-d space
    *
-   * @param x
-   * @param y
-   * @param z
+   * @param x X-coordinate
+   * @param y Y-coordinate
+   * @param z Z-coordinate
    */
   public LXPoint(double x, double y, double z) {
     this((float) x, (float) y, (float) z);
@@ -121,10 +121,10 @@ public class LXPoint {
   /**
    * Construct a point in 3-d space
    *
-   * @param x
-   * @param y
-   * @param z
-   * @param index
+   * @param x X-coordinate
+   * @param y Y-coordinate
+   * @param z Z-coordinate
+   * @param index Index in colors array
    */
   public LXPoint(double x, double y, double z, int index) {
     this((float) x, (float) y, (float) z, index);
@@ -133,7 +133,7 @@ public class LXPoint {
   /**
    * Construct a point from transform
    *
-   * @param transform
+   * @param transform LXTransform stack
    */
   public LXPoint(LXTransform transform) {
     this(transform.x(), transform.y(), transform.z());
