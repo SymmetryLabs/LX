@@ -106,6 +106,19 @@ public abstract class LXListenableParameter implements LXParameter {
     return (float) getValue();
   }
 
+  public final LXParameter setDefaultValue(double value) {
+    this.defaultValue = value;
+    return this;
+  }
+
+  public final double getDefaultValue() {
+    return this.defaultValue;
+  }
+
+  public final float getDefaultValuef() {
+    return (float) getDefaultValue();
+  }
+
   public String getLabel() {
     return this.label;
   }
