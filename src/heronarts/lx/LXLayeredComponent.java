@@ -66,7 +66,10 @@ public abstract class LXLayeredComponent extends LXComponent implements LXLoopTa
 
   protected LXLayeredComponent setBuffer(LXBuffer buffer) {
     this.buffer = buffer;
-    this.colors = buffer.getArray();
+    this.colors = buffer != null ? buffer.getArray() : null;
+    for (LXLayer layer : this.layers) {
+      layer.setBuffer(this.buffer);
+    }
     return this;
   }
 
@@ -103,11 +106,13 @@ public abstract class LXLayeredComponent extends LXComponent implements LXLoopTa
   protected /* abstract */ void onLoop(double deltaMs) {}
 
   protected final LXLayer addLayer(LXLayer layer) {
+    layer.setBuffer(this.buffer);
     this.layers.add(layer);
     return layer;
   }
 
   protected final LXLayer removeLayer(LXLayer layer) {
+    layer.setBuffer((LXBuffer)null);
     this.layers.remove(layer);
     return layer;
   }
