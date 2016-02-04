@@ -216,39 +216,41 @@ public class LXColor {
   /**
    * Scales the brightness of an array of colors by some factor
    *
-   * @param rgbs Array of color values
+   * @param argbs Array of color values
    * @param s Factor by which to scale brightness
    * @param result Array to write results into, if null, input array is modified
    */
-  public static void scaleBrightness(int[] rgbs, float s, int[] result) {
-    int r, g, b, rgb;
+  public static void scaleBrightness(int[] argbs, float s, int[] result) {
+    int a, r, g, b, argb;
     float[] hsb = new float[3];
     if (result == null) {
-      result = rgbs;
+      result = argbs;
     }
-    for (int i = 0; i < rgbs.length; ++i) {
-      rgb = rgbs[i];
-      r = (rgb & RED_MASK) >> RED_SHIFT;
-      g = (rgb & GREEN_MASK) >> GREEN_SHIFT;
-      b = rgb & BLUE_MASK;
+    for (int i = 0; i < argbs.length; ++i) {
+      argb = argbs[i];
+      a = (argb & ALPHA_MASK) >> ALPHA_SHIFT;
+      r = (argb & RED_MASK) >> RED_SHIFT;
+      g = (argb & GREEN_MASK) >> GREEN_SHIFT;
+      b = argb & BLUE_MASK;
       Color.RGBtoHSB(r, g, b, hsb);
-      result[i] = Color.HSBtoRGB(hsb[0], hsb[1], Math.min(1, hsb[2] * s));
+      result[i] = setAlpha(Color.HSBtoRGB(hsb[0], hsb[1], Math.min(1, hsb[2] * s)), a);
     }
   }
 
   /**
    * Scales the brightness of a color by a factor
    *
-   * @param rgb Color value
+   * @param argb Color value
    * @param s Factory by which to scale brightness
    * @return New color
    */
-  public static int scaleBrightness(int rgb, float s) {
-    int r = (rgb & RED_MASK) >> RED_SHIFT;
-    int g = (rgb & GREEN_MASK) >> GREEN_SHIFT;
-    int b = rgb & BLUE_MASK;
+  public static int scaleBrightness(int argb, float s) {
+    int a = (argb & ALPHA_MASK) >> ALPHA_SHIFT;
+    int r = (argb & RED_MASK) >> RED_SHIFT;
+    int g = (argb & GREEN_MASK) >> GREEN_SHIFT;
+    int b = argb & BLUE_MASK;
     float[] hsb = Color.RGBtoHSB(r, g, b, null);
-    return Color.HSBtoRGB(hsb[0], hsb[1], Math.min(1, hsb[2] * s));
+    return setAlpha(Color.HSBtoRGB(hsb[0], hsb[1], Math.min(1, hsb[2] * s)), a);
   }
 
   public static int setAlpha(int rgb, int alpha) {
