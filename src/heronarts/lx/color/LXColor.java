@@ -38,6 +38,7 @@ public class LXColor {
     DARKEST
   }
 
+  public static final int CLEAR = 0x00000000;
   public static final int BLACK = 0xff000000;
   public static final int WHITE = 0xffffffff;
   public static final int RED = 0xffff0000;
@@ -248,6 +249,18 @@ public class LXColor {
     int b = rgb & BLUE_MASK;
     float[] hsb = Color.RGBtoHSB(r, g, b, null);
     return Color.HSBtoRGB(hsb[0], hsb[1], Math.min(1, hsb[2] * s));
+  }
+
+  public static int setAlpha(int rgb, int alpha) {
+    return (rgb & (~ALPHA_MASK)) | ((alpha << ALPHA_SHIFT) & ALPHA_MASK);
+  }
+
+  public static int setAlpha(int rgb, float alpha) {
+    return setAlpha(rgb, (int) (alpha * 0xff));
+  }
+
+  public static int setAlpha(int rgb, double alpha) {
+    return setAlpha(rgb, (int) (alpha * 0xff));
   }
 
   /**
