@@ -33,10 +33,20 @@ public class DissolveTransition extends LXTransition {
 
   @Override
   protected void computeBlend(int[] c1, int[] c2, double progress) {
-    LXColor.scaleBrightness(c1, (float) (1 - progress), this.sb1);
-    LXColor.scaleBrightness(c2, (float) progress, this.sb2);
-    for (int i = 0; i < this.colors.length; ++i) {
-      this.colors[i] = LXColor.add(this.sb1[i], this.sb2[i]);
+    if (progress <= 0) {
+      for (int i = 0; i < c1.length; ++i) {
+        this.colors[i] = c1[i];
+      }
+    } else if (progress >= 1) {
+      for (int i = 0; i < c1.length; ++i) {
+        this.colors[i] = c2[i];
+      }
+    } else {
+      LXColor.scaleBrightness(c1, (float) (1 - progress), this.sb1);
+      LXColor.scaleBrightness(c2, (float) progress, this.sb2);
+      for (int i = 0; i < this.colors.length; ++i) {
+        this.colors[i] = LXColor.add(this.sb1[i], this.sb2[i]);
+      }
     }
   }
 
