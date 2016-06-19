@@ -158,6 +158,8 @@ public class LXChannel extends LXComponent {
     addParameter(this.enabled);
     addParameter(this.midiEnabled);
     addParameter(this.autoTransitionEnabled);
+
+    getActivePattern().onActive();
   }
 
   @Override
