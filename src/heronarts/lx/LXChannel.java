@@ -616,15 +616,39 @@ public class LXChannel extends LXComponent {
 
       // Run active pattern
       LXPattern activePattern = getActivePattern();
-      activePattern.loop(deltaMs);
+
+      int transitionMs = 0;
+      Thread patternThread = null;
+      if (this.transition != null) {
+        transitionMs = (int) (this.lx.engine.nowMillis - this.transitionMillis);
+        if (this.lx.engine.isPatternConcurrencyEnabled()
+            && transitionMs < this.transition.getDuration()) {
+          patternThread = new Thread() {
+            @Override
+            public void run() {
+              activePattern.loop(deltaMs);
+            }
+          };
+          patternThread.start();
+        }
+      }
+      if (patternThread == null) {
+        activePattern.loop(deltaMs);
+      }
 
       // Run transition if applicable
       if (this.transition != null) {
-        int transitionMs = (int) (this.lx.engine.nowMillis - this.transitionMillis);
         if (transitionMs >= this.transition.getDuration()) {
           finishTransition();
         } else {
           getNextPattern().loop(deltaMs);
+          if (patternThread != null) {
+            try {
+              patternThread.join();
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+          }
           this.transition.loop(deltaMs);
           this.transition.blend(
             getActivePattern().getColors(),
