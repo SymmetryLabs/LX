@@ -212,6 +212,7 @@ public class LXEngine extends LXParameterized {
   private long lastMillis;
 
   private boolean isThreaded = false;
+  private boolean isPatternConcurrencyEnabled = false;
   private Thread engineThread = null;
 
   public final BasicParameter speed = new BasicParameter("SPEED", 1, 0, 2);
@@ -360,6 +361,26 @@ public class LXEngine extends LXParameterized {
       l.unlock();
     }
     return this;
+  }
+
+  public LXEngine setPatternConcurrencyEnabled(boolean enabled) {
+    Lock l = this.engineModificationLock.writeLock();
+    l.lock();
+    try {
+      this.isPatternConcurrencyEnabled = enabled;
+    } finally {
+      l.unlock();
+    }
+    return this;
+  }
+
+  public boolean isPatternConcurrencyEnabled() {
+    Lock l = this.acquireReadLock();
+    try {
+      return this.isPatternConcurrencyEnabled;
+    } finally {
+      unlock(l);
+    }
   }
 
   public LXEngine setSpeed(double speed) {
@@ -633,10 +654,52 @@ public class LXEngine extends LXParameterized {
 
       // Run and blend all of our channels
       long channelStart = System.nanoTime();
+
+      if (this.isPatternConcurrencyEnabled) {
+        int channelCount = 0;
+        for (LXChannel channel : this.channels) {
+          if (channel.enabled.isOn()) {
+            channelCount++;
+          }
+        }
+
+        final double finalDeltaMs = deltaMs;
+        List<Thread> channelThreads = new ArrayList<Thread>(this.channels.size());
+        for (LXChannel channel : this.channels) {
+          if (channel.enabled.isOn()) {
+            channelCount--;
+            if (channelCount == 0) {
+              channel.loop(deltaMs);
+            } else {
+              Thread channelThread = new Thread() {
+                @Override
+                public void run() {
+                  channel.loop(finalDeltaMs);
+                }
+              };
+              channelThread.start();
+              channelThreads.add(channelThread);
+            }
+          }
+        }
+        for (Thread thread : channelThreads) {
+          try {
+            thread.join();
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+      } else {
+        for (LXChannel channel : this.channels) {
+          if (channel.enabled.isOn()) {
+            channel.loop(deltaMs);
+          }
+        }
+      }
+
       int[] bufferColors = this.black;
       for (LXChannel channel : this.channels) {
         if (channel.enabled.isOn()) {
-          channel.loop(deltaMs);
           channel.getFaderTransition().timer.blendNanos = 0;
 
           // This optimization assumed that all transitions do
