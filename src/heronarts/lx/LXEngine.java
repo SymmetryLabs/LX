@@ -29,6 +29,7 @@ import heronarts.lx.pattern.IteratorTestPattern;
 import heronarts.lx.pattern.LXPattern;
 import heronarts.lx.pattern.SolidColorPattern;
 import heronarts.lx.transition.LXTransition;
+import heronarts.lx.utils.IteratorModifiableArrayList;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,7 +70,7 @@ public class LXEngine extends LXParameterized {
 
   private Dispatch inputDispatch = null;
 
-  private final List<LXLoopTask> loopTasks = new ArrayList<LXLoopTask>();
+  private final List<LXLoopTask> loopTasks = new IteratorModifiableArrayList<LXLoopTask>();
   private final List<LXChannel> channels = new ArrayList<LXChannel>();
   private final List<LXEffect> effects = new ArrayList<LXEffect>();
   private final List<LXOutput> outputs = new ArrayList<LXOutput>();
