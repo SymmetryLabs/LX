@@ -42,6 +42,18 @@ public class LXUtils {
     return value < min ? min : (value > max ? max : value);
   }
 
+  public static double constrainDelta(double origin, double delta, double min, double max) {
+    return constrain(delta, min - origin, max - origin);
+  }
+
+  public static float constrainDeltaf(float origin, float delta, float min, float max) {
+    return constrainf(delta, min - origin, max - origin);
+  }
+
+  public static float constrainDelta(int origin, int delta, int min, int max) {
+    return constrain(delta, min - origin, max - origin);
+  }
+
   public static double random(double min, double max) {
     return min + Math.random() * (max - min);
   }
