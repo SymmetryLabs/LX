@@ -95,6 +95,9 @@ public class LXEngine extends LXParameterized {
   public interface Listener {
     public void channelAdded(LXEngine engine, LXChannel channel);
     public void channelRemoved(LXEngine engine, LXChannel channel);
+
+    public void effectAdded(LXEngine engine, LXEffect effect);
+    public void effectRemoved(LXEngine engine, LXEffect effect);
   }
 
   public interface MessageListener {
@@ -464,6 +467,9 @@ public class LXEngine extends LXParameterized {
     l.lock();
     try {
       this.effects.add(fx);
+      for (Listener listener : this.listeners) {
+        listener.effectAdded(this, fx);
+      }
     } finally {
       l.unlock();
     }
@@ -475,6 +481,9 @@ public class LXEngine extends LXParameterized {
     l.lock();
     try {
       this.effects.remove(fx);
+      for (Listener listener : this.listeners) {
+        listener.effectRemoved(this, fx);
+      }
     } finally {
       l.unlock();
     }
