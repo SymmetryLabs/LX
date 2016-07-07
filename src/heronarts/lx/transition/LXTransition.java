@@ -163,6 +163,12 @@ public abstract class LXTransition extends LXBufferedComponent {
     return value;
   }
 
+  @Override
+  public void loop(double deltaMs) {
+    this.timer.blendNanos = 0;
+    super.loop(deltaMs);
+  }
+
   /**
    * Invoked by the Engine. After this method is called getColors() will return
    * the blended colors.

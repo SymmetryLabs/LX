@@ -28,6 +28,8 @@ import heronarts.lx.parameter.LXParameterized;
 import heronarts.lx.pattern.IteratorTestPattern;
 import heronarts.lx.pattern.LXPattern;
 import heronarts.lx.pattern.SolidColorPattern;
+import heronarts.lx.renderer.LXRenderer;
+import heronarts.lx.renderer.LeftToRightRenderer;
 import heronarts.lx.transition.LXTransition;
 import heronarts.lx.utils.IteratorModifiableArrayList;
 
@@ -76,6 +78,7 @@ public class LXEngine extends LXParameterized {
   private final List<LXOutput> outputs = new ArrayList<LXOutput>();
   private final List<Listener> listeners = new ArrayList<Listener>();
   private final List<MessageListener> messageListeners = new ArrayList<MessageListener>();
+  private LXRenderer renderer;
 
   private final List<LXChannel> unmodifiableChannels = Collections.unmodifiableList(this.channels);
   private final List<LXEffect> unmodifiableEffects = Collections.unmodifiableList(this.effects);
@@ -240,7 +243,7 @@ public class LXEngine extends LXParameterized {
 
     // Add a default channel
     addChannel(new LXPattern[] { new IteratorTestPattern(lx) });
-    this.channels.get(0).getFader().setValue(1);
+    this.channels.get(0).getRendererBlending().getAmount().setValue(1);
 
     // Initialize timer
     this.lastMillis = System.currentTimeMillis();
@@ -632,6 +635,14 @@ public class LXEngine extends LXParameterized {
     return getDefaultChannel().isAutoTransitionEnabled();
   }
 
+  public void setRenderer(LXRenderer renderer) {
+    this.renderer = renderer;
+  }
+
+  public LXRenderer getRenderer() {
+    return this.renderer;
+  }
+
   public void run() {
     Lock l = this.engineModificationLock.updateLock();
     l.lock();
@@ -708,31 +719,11 @@ public class LXEngine extends LXParameterized {
       }
 
       int[] bufferColors = this.black;
-      for (LXChannel channel : this.channels) {
-        if (channel.enabled.isOn()) {
-          channel.getFaderTransition().timer.blendNanos = 0;
-
-          // This optimization assumed that all transitions do
-          // nothing at 0 and completely take over at 1. That's
-          // not always the case. Leaving this here for reference.
-
-          // if (channel.getFader().getValue() == 0) {
-          // // No blending on this channel, leave colors as they were
-          // } else if (channel.getFader().getValue() >= 1) {
-          // // Fully faded in, just use this channel
-          // bufferColors = channel.getColors();
-          // } else {
-
-          // Apply the fader to this channel
-          channel.getFaderTransition().loop(deltaMs);
-          channel.getFaderTransition().blend(
-            bufferColors,
-            channel.getColors(),
-            channel.getFader().getValue()
-          );
-          bufferColors = channel.getFaderTransition().getColors();
-        }
+      if (this.renderer == null) {
+        this.renderer = new LeftToRightRenderer();
       }
+      this.renderer.loop(deltaMs);
+      bufferColors = this.renderer.blend(bufferColors, this.channels);
 
       this.timer.channelNanos = System.nanoTime() - channelStart;
 

@@ -21,10 +21,9 @@ package heronarts.lx;
 import heronarts.lx.color.LXPalette;
 import heronarts.lx.effect.LXEffect;
 import heronarts.lx.model.LXModel;
-import heronarts.lx.parameter.BasicParameter;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.pattern.LXPattern;
-import heronarts.lx.transition.DissolveTransition;
+import heronarts.lx.renderer.LXRendererBlending;
 import heronarts.lx.transition.LXTransition;
 
 import java.util.ArrayList;
@@ -59,8 +58,6 @@ public class LXChannel extends LXComponent {
     public void patternWillChange(LXChannel channel, LXPattern pattern, LXPattern nextPattern);
 
     public void patternDidChange(LXChannel channel, LXPattern pattern);
-
-    public void faderTransitionDidChange(LXChannel channel, LXTransition faderTransition);
   }
 
   /**
@@ -91,11 +88,6 @@ public class LXChannel extends LXComponent {
 
     @Override
     public void patternDidChange(LXChannel channel, LXPattern pattern) {
-    }
-
-    @Override
-    public void faderTransitionDidChange(LXChannel channel,
-        LXTransition faderTransition) {
     }
   }
 
@@ -135,8 +127,7 @@ public class LXChannel extends LXComponent {
 
   private int autoTransitionThreshold = 60000;
 
-  private LXTransition faderTransition = null;
-  private final BasicParameter fader = new BasicParameter("FADER", 0);
+  private LXRendererBlending rendererBlending;
 
   private LXTransition transition = null;
   private long transitionMillis = 0;
@@ -150,7 +141,7 @@ public class LXChannel extends LXComponent {
     this.lx = lx;
     this.index = index;
     this.buffer = new ModelBuffer(lx);
-    this.faderTransition = new DissolveTransition(lx);
+    this.rendererBlending = new LXRendererBlending(lx);
     this.transitionMillis = System.currentTimeMillis();
     _updatePatterns(patterns);
     this.colors = this.getActivePattern().getColors();
@@ -216,33 +207,8 @@ public class LXChannel extends LXComponent {
     }
   }
 
-  public final BasicParameter getFader() {
-    return this.fader;
-  }
-
-  public final LXTransition getFaderTransition() {
-    Lock l = this.acquireReadLock();
-    try {
-      return this.faderTransition;
-    } finally {
-      unlock(l);
-    }
-  }
-
-  public final LXChannel setFaderTransition(LXTransition transition) {
-    Lock l = this.channelModificationLock.writeLock();
-    l.lock();
-    try {
-      if (this.faderTransition != transition) {
-        this.faderTransition = transition;
-        for (Listener listener : this.listeners) {
-          listener.faderTransitionDidChange(this, this.faderTransition);
-        }
-      }
-    } finally {
-      l.unlock();
-    }
-    return this;
+  public final LXRendererBlending getRendererBlending() {
+    return this.rendererBlending;
   }
 
   public final LXChannel addEffect(LXEffect effect) {

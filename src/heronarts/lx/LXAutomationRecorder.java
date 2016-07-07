@@ -277,8 +277,8 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
         }
       }
     });
-    registerParameter(path + "/fader", channel.getFader());
-    registerComponent(path + "/fader", channel.getFaderTransition());
+    registerParameter(path + "/fader", channel.getRendererBlending().getAmount());
+    registerComponent(path + "/fader", channel.getRendererBlending().getTransition());
     for (LXPattern pattern : channel.getPatterns()) {
       registerPattern(path, pattern);
     }
