@@ -692,7 +692,7 @@ public class LXEngine extends LXParameterized {
             if (channelCount == 0) {
               channel.loop(deltaMs);
             } else {
-              Thread channelThread = new Thread() {
+              Thread channelThread = new Thread("Channel " + channel.getIndex() + " Loop Thread") {
                 @Override
                 public void run() {
                   channel.loop(finalDeltaMs);
