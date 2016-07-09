@@ -28,10 +28,12 @@ import javax.sound.midi.MidiDevice;
 import javax.sound.midi.MidiMessage;
 import javax.sound.midi.MidiUnavailableException;
 import javax.sound.midi.ShortMessage;
+import javax.sound.midi.Transmitter;
 
 public class LXMidiInput {
 
-  private final MidiDevice device;
+  protected final Transmitter transmitter;
+  private final String name;
 
   private final LXMidiEngine midiEngine;
 
@@ -45,6 +47,10 @@ public class LXMidiInput {
     this(lx.engine.midiEngine, device);
   }
 
+  public LXMidiInput(LX lx, Transmitter transmitter, String name) {
+    this(lx.engine.midiEngine, transmitter, name);
+  }
+
   public LXMidiInput(LXMidiEngine midiEngine, MidiDevice device)
       throws MidiUnavailableException {
     this(midiEngine, device, null);
@@ -52,16 +58,31 @@ public class LXMidiInput {
 
   public LXMidiInput(LXMidiEngine midiEngine, MidiDevice device, LXMidiListener listener) throws MidiUnavailableException {
     this.midiEngine = midiEngine;
-    this.device = device;
+    this.transmitter = device.getTransmitter();
+    this.name = device.getDeviceInfo().getName();
     if (listener != null) {
       addListener(listener);
     }
     device.open();
-    device.getTransmitter().setReceiver(new Receiver());
+    transmitter.setReceiver(new Receiver());
+  }
+
+  public LXMidiInput(LXMidiEngine midiEngine, Transmitter transmitter, String name) {
+    this(midiEngine, transmitter, name, null);
+  }
+
+  public LXMidiInput(LXMidiEngine midiEngine, Transmitter transmitter, String name, LXMidiListener listener) {
+    this.midiEngine = midiEngine;
+    this.transmitter = transmitter;
+    this.name = name;
+    if (listener != null) {
+      addListener(listener);
+    }
+    transmitter.setReceiver(new Receiver());
   }
 
   public String getName() {
-    return this.device.getDeviceInfo().getName();
+    return this.name;
   }
 
   public LXMidiInput addListener(LXMidiListener listener) {
