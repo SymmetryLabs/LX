@@ -19,6 +19,7 @@
 package heronarts.lx.midi;
 
 import heronarts.lx.LX;
+import heronarts.lx.parameter.BooleanParameter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +38,8 @@ public class LXMidiInput {
   private final List<LXMidiListener> listeners = new ArrayList<LXMidiListener>();
 
   private boolean isEngineInput = false;
+
+  public final BooleanParameter enabled = new BooleanParameter("Midi Input Enabled", true);
 
   public LXMidiInput(LX lx, MidiDevice device) throws MidiUnavailableException {
     this(lx.engine.midiEngine, device);
@@ -124,6 +127,9 @@ public class LXMidiInput {
    * @param message Midi message
    */
   public void dispatch(LXShortMessage message) {
+    if (!enabled.isOn()) {
+      return;
+    }
     for (LXMidiListener listener : this.listeners) {
       this.midiEngine.dispatch(message, listener);
     }
