@@ -571,7 +571,7 @@ public class LXMidiDevice implements LXMidiListener {
   public LXMidiDevice unbindNoteOn(int channel, int number) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
-        unbindNoteOn(channel, number);
+        unbindNoteOn(i, number);
       }
     } else {
       int i = index(channel, number);
@@ -590,7 +590,7 @@ public class LXMidiDevice implements LXMidiListener {
   public LXMidiDevice unbindNoteOff(int channel, int number) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
-        unbindNoteOff(channel, number);
+        unbindNoteOff(i, number);
       }
     } else {
       int i = index(channel, number);
@@ -609,7 +609,7 @@ public class LXMidiDevice implements LXMidiListener {
   public LXMidiDevice unbindController(int channel, int cc) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
-        unbindNoteOff(channel, cc);
+        unbindController(i, cc);
       }
     } else {
       int i = index(channel, cc);
