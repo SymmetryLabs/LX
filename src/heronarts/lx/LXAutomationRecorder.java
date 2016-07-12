@@ -234,7 +234,7 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     this.engine = engine;
     registerEngine();
     for (LXChannel channel : engine.getChannels()) {
-      registerChannel(channel, false);
+      registerChannel(channel);
     }
     for (LXEffect effect : engine.getEffects()) {
       registerComponent("effect/" + effect.getClass().getName(), effect);
@@ -246,6 +246,13 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
   public LXAutomationRecorder(LXEngine engine, LXChannel channel) {
     this.engine = engine;
     registerChannel(channel, true);
+  }
+
+  public LXAutomationRecorder(LXEngine engine, LXChannelGroup channelGroup) {
+    this.engine = engine;
+    for (LXChannel channel : channelGroup.getChannels()) {
+      registerChannel(channel);
+    }
   }
 
   public LXAutomationRecorder(LXEngine engine, LXPattern pattern) {
@@ -260,6 +267,10 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
       }
     }
     return this;
+  }
+
+  private LXAutomationRecorder registerChannel(LXChannel channel) {
+    return registerChannel(channel, false);
   }
 
   private LXAutomationRecorder registerChannel(LXChannel channel, boolean onlyChannel) {
