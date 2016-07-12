@@ -18,6 +18,8 @@
 
 package heronarts.lx.parameter;
 
+import heronarts.lx.LXUtils;
+
 /**
  * Parameter type with a discrete set of possible integer values.
  */
@@ -134,7 +136,7 @@ public class DiscreteParameter extends LXListenableNormalizedParameter {
           "DiscreteParameter must have range of at least 1");
     }
     this.range = maxValue - minValue;
-    setValue(updateValue(this.getValue()));
+    setValue(LXUtils.constrain(this.getValuei(), minValue, maxValue - 1));
     return this;
   }
 
