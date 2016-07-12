@@ -216,7 +216,7 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
 
     @Override
     void play() {
-      if (looping.isOn()) {
+      if (looping.isOn() && elapsedMillis > 0) {
         elapsedMillis = 0;
         cursor = 0;
       } else {
