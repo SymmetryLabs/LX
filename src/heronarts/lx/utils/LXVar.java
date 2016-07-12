@@ -11,6 +11,11 @@ public class LXVar<T> extends LXAbstractObservable<T> {
     this.value = value;
   }
 
+  public void addObserverWithInit(LXObserver<T> observer) {
+    addObserver(observer);
+    notifyDidChange(value);
+  }
+
   public T get() {
     return value;
   }
