@@ -48,6 +48,8 @@ public class LXMidiDevice implements LXMidiListener {
   private final static int DISCRETE = 3;
   private final static int DISCRETE_OFF = 4;
 
+  public final static int ALWAYS_USE_NOTE_ON = 1;
+
   // TODO(mcslee): implement LXModulator controls
   // public final static int START = 3;
   // public final static int STOP = 4;
@@ -98,6 +100,7 @@ public class LXMidiDevice implements LXMidiListener {
     private final int mode;
     private final int value;
     private final int secondary;
+    private final int flags;
 
     private NoteBinding(LXParameter parameter, int channel, int number,
         int mode, int value) {
@@ -106,12 +109,18 @@ public class LXMidiDevice implements LXMidiListener {
 
     private NoteBinding(LXParameter parameter, int channel, int number,
         int mode, int value, int secondary) {
+      this(parameter, channel, number, mode, value, secondary, 0);
+    }
+
+    private NoteBinding(LXParameter parameter, int channel, int number,
+        int mode, int value, int secondary, int flags) {
       super(parameter);
       this.channel = channel;
       this.number = number;
       this.mode = mode;
       this.value = value;
       this.secondary = secondary;
+      this.flags = flags;
 
       assertChannel(channel);
       assertValue(number);
@@ -209,14 +218,14 @@ public class LXMidiDevice implements LXMidiListener {
         switch (this.mode) {
         case OFF:
           if (parameterValue == 0) {
-            output.sendNoteOff(this.channel, this.number, 0);
+            sendNoteOff();
           }
           break;
         case TOGGLE:
         case DIRECT:
           if (parameterValue == 0) {
             if (this.mode == TOGGLE) {
-              output.sendNoteOff(this.channel, this.number, 0);
+              sendNoteOff();
             }
           } else {
             if (this.value == NOTE_VELOCITY) {
@@ -234,10 +243,18 @@ public class LXMidiDevice implements LXMidiListener {
           if (discreteParameter.getValuei() == this.value) {
             output.sendNoteOn(this.channel, this.number, MIDI_MAX);
           } else {
-            output.sendNoteOff(this.channel, this.number, 0);
+            sendNoteOff();
           }
           break;
         }
+      }
+    }
+
+    private void sendNoteOff() {
+      if ((this.flags & ALWAYS_USE_NOTE_ON) != 0) {
+        output.sendNoteOn(this.channel, this.number, 0);
+      } else {
+        output.sendNoteOff(this.channel, this.number, 0);
       }
     }
   }
@@ -422,9 +439,14 @@ public class LXMidiDevice implements LXMidiListener {
 
   public LXMidiDevice bindNote(LXParameter parameter, int channel, int number,
       int mode, int value) {
-    bindNoteOn(parameter, channel, number, mode, value);
+    return bindNote(parameter, channel, number, mode, value, 0);
+  }
+
+  public LXMidiDevice bindNote(LXParameter parameter, int channel, int number,
+      int mode, int value, int flags) {
+    bindNoteOn(parameter, channel, number, mode, value, 0, flags);
     if (mode == DIRECT) {
-      bindNoteOff(parameter, channel, number);
+      bindNoteOff(parameter, channel, number, flags);
     }
     return this;
   }
@@ -449,15 +471,20 @@ public class LXMidiDevice implements LXMidiListener {
 
   private LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
       int number, int mode, int value, int secondary) {
+    return bindNoteOn(parameter, channel, number, mode, value, secondary, 0);
+  }
+
+  private LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
+      int number, int mode, int value, int secondary, int flags) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
-        bindNoteOn(parameter, i, number, mode, value, secondary);
+        bindNoteOn(parameter, i, number, mode, value, secondary, flags);
       }
     } else {
       unbindNoteOn(channel, number);
       int i = index(channel, number);
       this.noteOnBindings[i] = new NoteBinding(parameter, channel, number,
-          mode, value, secondary);
+          mode, value, secondary, flags);
     }
     return this;
   }
@@ -467,15 +494,19 @@ public class LXMidiDevice implements LXMidiListener {
   }
 
   public LXMidiDevice bindNoteOff(LXParameter parameter, int channel, int number) {
+    return bindNoteOff(parameter, channel, number, 0);
+  }
+
+  public LXMidiDevice bindNoteOff(LXParameter parameter, int channel, int number, int flags) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
-        bindNoteOff(parameter, i, number);
+        bindNoteOff(parameter, i, number, flags);
       }
     } else {
       unbindNoteOff(channel, number);
       int i = index(channel, number);
       this.noteOffBindings[i] = new NoteBinding(parameter, channel, number,
-          OFF, 0);
+          OFF, 0, 0, flags);
     }
     return this;
   }
@@ -520,36 +551,56 @@ public class LXMidiDevice implements LXMidiListener {
 
   public LXMidiDevice bindNotes(DiscreteParameter parameter, int channel,
       int[] notes) {
+    return bindNotes(parameter, channel, notes, 0);
+  }
+
+  public LXMidiDevice bindNotes(DiscreteParameter parameter, int channel,
+      int[] notes, int flags) {
     for (int i = 0; i < notes.length; ++i) {
       bindNoteOn(parameter, channel, notes[i], DISCRETE,
-          parameter.getMinValue() + i);
+          parameter.getMinValue() + i, 0, flags);
     }
     return this;
   }
 
-  public LXMidiDevice bindNotes(DiscreteParameter parameter, int channel,
+  public LXMidiDevice bindNotesOff(DiscreteParameter parameter, int channel,
       int[] notes, int offValue) {
+    return bindNotesOff(parameter, channel, notes, offValue, 0);
+  }
+
+  public LXMidiDevice bindNotesOff(DiscreteParameter parameter, int channel,
+      int[] notes, int offValue, int flags) {
     for (int i = 0; i < notes.length; ++i) {
       bindNoteOn(parameter, channel, notes[i], DISCRETE_OFF,
-          parameter.getMinValue() + i, offValue);
+          parameter.getMinValue() + i, offValue, flags);
     }
     return this;
   }
 
   public LXMidiDevice bindNotes(DiscreteParameter parameter, int[] channels,
       int note) {
+    return bindNotes(parameter, channels, note, 0);
+  }
+
+  public LXMidiDevice bindNotes(DiscreteParameter parameter, int[] channels,
+      int note, int flags) {
     for (int i = 0; i < channels.length; ++i) {
       bindNoteOn(parameter, channels[i], note, DISCRETE,
-          parameter.getMinValue() + i);
+          parameter.getMinValue() + i, 0, flags);
     }
     return this;
   }
 
-  public LXMidiDevice bindNotes(DiscreteParameter parameter, int[] channels,
+  public LXMidiDevice bindNotesOff(DiscreteParameter parameter, int[] channels,
       int note, int offValue) {
+    return bindNotesOff(parameter, channels, note, offValue, 0);
+  }
+
+  public LXMidiDevice bindNotesOff(DiscreteParameter parameter, int[] channels,
+      int note, int offValue, int flags) {
     for (int i = 0; i < channels.length; ++i) {
       bindNoteOn(parameter, channels[i], note, DISCRETE_OFF,
-          parameter.getMinValue() + i, offValue);
+          parameter.getMinValue() + i, offValue, flags);
     }
     return this;
   }
@@ -617,6 +668,20 @@ public class LXMidiDevice implements LXMidiListener {
         controllerBindings[i].unbind();
         controllerBindings[i] = null;
       }
+    }
+    return this;
+  }
+
+  public LXMidiDevice unbindNotes(int channel, int[] notes) {
+    for (int i = 0; i < notes.length; ++i) {
+      unbindNote(channel, notes[i]);
+    }
+    return this;
+  }
+
+  public LXMidiDevice unbindNotes(int[] channels, int note) {
+    for (int i = 0; i < channels.length; ++i) {
+      unbindNote(channels[i], note);
     }
     return this;
   }
