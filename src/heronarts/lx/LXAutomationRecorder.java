@@ -54,6 +54,7 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
   private final static String EVENT_PARAMETER = "PARAMETER";
   private final static String EVENT_MESSAGE = "MESSAGE";
   private final static String EVENT_MIDI = "MIDI";
+  private final static String EVENT_START = "START";
   private final static String EVENT_FINISH = "FINISH";
 
   private final static String KEY_EVENT = "event";
@@ -66,8 +67,10 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
   private final static String KEY_DATA_1 = "data1";
   private final static String KEY_DATA_2 = "data2";
   private final static String KEY_MESSAGE = "message";
+  private final static String KEY_IS_SNAPSHOT = "isSnapshot";
 
   private final LXEngine engine;
+  private final LXChannelGroup channelGroup;
 
   /**
    * Whether the recorder is armed. If true, then playback records new
@@ -87,6 +90,8 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
   private final Map<String, LXParameter> pathToParameter = new HashMap<String, LXParameter>();
 
   private final Map<LXParameter, String> parameterToPath = new HashMap<LXParameter, String>();
+
+  private boolean isSnapshot;
 
   private int cursor = 0;
 
@@ -133,7 +138,13 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
 
     @Override
     protected void toJson(JsonObject jsonObj) {
-      jsonObj.addProperty(KEY_CHANNEL, this.channel.getIndex());
+      int channelIndex;
+      if (channelGroup != null) {
+        channelIndex = channelGroup.getChannels().indexOf(channel);
+      } else {
+        channelIndex = this.channel.getIndex();
+      }
+      jsonObj.addProperty(KEY_CHANNEL, channelIndex);
       jsonObj.addProperty(KEY_PATTERN, this.pattern.getClass().getName());
     }
   }
@@ -160,7 +171,11 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
 
     @Override
     protected void toJson(JsonObject jsonObj) {
-      jsonObj.addProperty(KEY_PARAMETER, parameterToPath.get(this.parameter));
+      String path = parameterToPath.get(this.parameter);
+      if (path == null) {
+        System.out.println("Error: LXAutomationRecorder: path is null for parameter \"" + this.parameter.getLabel() + "\"");
+      }
+      jsonObj.addProperty(KEY_PARAMETER, path);
       jsonObj.addProperty(KEY_VALUE, (float) this.value);
     }
   }
@@ -216,7 +231,7 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
 
     @Override
     void play() {
-      if (looping.isOn() && elapsedMillis > 0) {
+      if (!isSnapshot && looping.isOn()) {
         elapsedMillis = 0;
         cursor = 0;
       } else {
@@ -230,8 +245,29 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     }
   }
 
+  private class StartAutomationEvent extends LXAutomationEvent {
+
+    private final boolean isSnapshot;
+
+    private StartAutomationEvent(boolean isSnapshot) {
+      super(EVENT_START);
+      this.isSnapshot = isSnapshot;
+    }
+
+    @Override
+    void play() {
+      LXAutomationRecorder.this.isSnapshot = this.isSnapshot;
+    }
+
+    @Override
+    protected void toJson(JsonObject jsonObj) {
+      jsonObj.addProperty(KEY_IS_SNAPSHOT, this.isSnapshot);
+    }
+  }
+
   public LXAutomationRecorder(LXEngine engine) {
     this.engine = engine;
+    this.channelGroup = null;
     registerEngine();
     for (LXChannel channel : engine.getChannels()) {
       registerChannel(channel);
@@ -245,22 +281,23 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
 
   public LXAutomationRecorder(LXEngine engine, LXChannel channel) {
     this.engine = engine;
+    this.channelGroup = null;
     registerChannel(channel, true);
   }
 
   public LXAutomationRecorder(LXEngine engine, LXChannelGroup channelGroup) {
     this.engine = engine;
-    for (LXChannel channel : channelGroup.getChannels()) {
-      registerChannel(channel);
-    }
+    this.channelGroup = channelGroup;
+    registerChannelGroup(channelGroup);
   }
 
   public LXAutomationRecorder(LXEngine engine, LXPattern pattern) {
     this.engine = engine;
+    this.channelGroup = null;
     registerPattern(null, pattern);
   }
 
-  private LXAutomationRecorder registerEngine() {
+  public LXAutomationRecorder registerEngine() {
     for (LXParameter parameter : this.engine.getParameters()) {
       if (parameter instanceof LXListenableParameter) {
         registerParameter("engine/" + parameter.getLabel(), (LXListenableParameter) parameter);
@@ -269,14 +306,26 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     return this;
   }
 
-  private LXAutomationRecorder registerChannel(LXChannel channel) {
+  public LXAutomationRecorder registerChannelGroup(LXChannelGroup channelGroup) {
+    List<LXChannel> channels = channelGroup.getChannels();
+    for (int i = 0; i < channels.size(); i++) {
+      registerChannel(channels.get(i), i);
+    }
+    return this;
+  }
+
+  public LXAutomationRecorder registerChannel(LXChannel channel) {
     return registerChannel(channel, false);
   }
 
-  private LXAutomationRecorder registerChannel(LXChannel channel, boolean onlyChannel) {
+  public LXAutomationRecorder registerChannel(LXChannel channel, boolean onlyChannel) {
+    return registerChannel(channel, onlyChannel ? -1 : channel.getIndex());
+  }
+
+  public LXAutomationRecorder registerChannel(LXChannel channel, int channelIndex) {
     String path = "channel";
-    if (!onlyChannel) {
-      path += "/" + channel.getIndex();
+    if (channelIndex != -1) {
+      path += "/" + channelIndex;
     }
     this.channels.add(channel);
     channel.addListener(new LXChannel.AbstractListener() {
@@ -293,10 +342,13 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     for (LXPattern pattern : channel.getPatterns()) {
       registerPattern(path, pattern);
     }
+    for (LXEffect effect : channel.getEffects()) {
+      registerComponent(path + "/effect/" + effect.getClass().getName(), effect);
+    }
     return this;
   }
 
-  private LXAutomationRecorder registerPattern(String path, LXPattern pattern) {
+  public LXAutomationRecorder registerPattern(String path, LXPattern pattern) {
     if (path != null) {
       path += "/";
     } else {
@@ -306,7 +358,7 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     return this;
   }
 
-  private LXAutomationRecorder registerComponent(String prefix, LXLayeredComponent component) {
+  public LXAutomationRecorder registerComponent(String prefix, LXLayeredComponent component) {
     for (LXParameter parameter : component.getParameters()) {
       if (parameter instanceof LXListenableParameter) {
         registerParameter(prefix + "/" + parameter.getLabel(), (LXListenableParameter) parameter);
@@ -315,11 +367,31 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     return this;
   }
 
-  private LXAutomationRecorder registerParameter(String path, LXListenableParameter parameter) {
-    this.pathToParameter.put(path, parameter);
-    this.parameterToPath.put(parameter, path);
-    addParameter(parameter);
+  public LXAutomationRecorder registerParameter(String path, LXListenableParameter parameter) {
+    if (parameter != null) {
+      this.pathToParameter.put(path, parameter);
+      this.parameterToPath.put(parameter, path);
+      addParameter(parameter);
+    } else {
+      System.out.println("Error: LXAutomationRecorder: Parameter is null for \"" + path + "\"");
+    }
     return this;
+  }
+
+  public void saveSnapshot() {
+    reset();
+    this.elapsedMillis = 0;
+    this.events.clear();
+    this.events.add(new StartAutomationEvent(true));
+    for (LXParameter parameter : getParameters()) {
+      if (this.parameterToPath.containsKey(parameter)) {
+        this.events.add(new ParameterAutomationEvent(parameter));
+      }
+    }
+    for (LXChannel channel : this.channels) {
+      this.events.add(new PatternAutomationEvent(channel, channel.getActivePattern()));
+    }
+    this.events.add(new FinishAutomationEvent());
   }
 
   @Override
@@ -327,8 +399,11 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
     this.elapsedMillis = 0;
     if (this.armRecord.isOn()) {
       this.events.clear();
+      this.events.add(new StartAutomationEvent(false));
       for (LXParameter parameter : getParameters()) {
-        this.events.add(new ParameterAutomationEvent(parameter));
+        if (this.parameterToPath.containsKey(parameter)) {
+          this.events.add(new ParameterAutomationEvent(parameter));
+        }
       }
       for (LXChannel channel : this.channels) {
         this.events.add(new PatternAutomationEvent(channel, channel.getActivePattern()));
@@ -399,7 +474,12 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
         } else if (eventType.equals(EVENT_PATTERN)) {
           int channelIndex = obj.get(KEY_CHANNEL).getAsInt();
           String patternClassName = obj.get(KEY_PATTERN).getAsString();
-          LXChannel channel = this.engine.getChannel(channelIndex);
+          LXChannel channel;
+          if (this.channelGroup != null) {
+            channel = this.channelGroup.getChannels().get(channelIndex);
+          } else {
+            channel = this.engine.getChannel(channelIndex);
+          }
           LXPattern pattern = channel.getPattern(patternClassName);
           event = new PatternAutomationEvent(channel, pattern);
         } else if (eventType.equals(EVENT_MIDI)) {
@@ -417,6 +497,9 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
         } else if (eventType.equals(EVENT_MESSAGE)) {
           String message = obj.get(KEY_MESSAGE).getAsString();
           event = new MessageAutomationEvent(message);
+        } else if (eventType.equals(EVENT_START)) {
+          boolean isSnapshot = obj.get(KEY_IS_SNAPSHOT).getAsBoolean();
+          event = new StartAutomationEvent(isSnapshot);
         } else if (eventType.equals(EVENT_FINISH)) {
           event = new FinishAutomationEvent();
         }
