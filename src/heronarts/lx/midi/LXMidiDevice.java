@@ -383,11 +383,52 @@ public class LXMidiDevice implements LXMidiListener {
     }
   }
 
+  private class PitchBendBinding extends Binding {
+
+    private final int channel;
+
+    private PitchBendBinding(LXParameter parameter, int channel) {
+      super(parameter);
+      this.channel = channel;
+
+      assertChannel(channel);
+
+      if (this.isListening) {
+        onParameterChanged(this.parameter);
+      }
+    }
+
+    private void pitchBendReceived(LXMidiPitchBend pitchBend) {
+      int pitch = pitchBend.getPitchBend();
+      double normalizedValue = (pitch + 8192) / 16383.0;
+      if (this.parameter instanceof LXNormalizedParameter) {
+        ((LXNormalizedParameter) this.parameter)
+            .setNormalized(normalizedValue);
+      } else {
+        this.parameter.setValue(pitch);
+      }
+    }
+
+    @Override
+    public void onParameterChanged(LXParameter parameter) {
+      if (output != null) {
+        double parameterValue = this.parameter.getValue();
+        if (this.parameter instanceof LXNormalizedParameter) {
+          double normalized = ((LXNormalizedParameter) this.parameter).getNormalized();
+          parameterValue = 16383 * normalized - 8192;
+        }
+        int sendValue = (int) LXUtils.constrain(parameterValue, -8192, 8191);
+        output.sendPitchBend(this.channel, sendValue);
+      }
+    }
+  }
+
   private boolean logEvents = false;
 
   private final NoteBinding[] noteOnBindings;
   private final NoteBinding[] noteOffBindings;
   private final ControllerBinding[] controllerBindings;
+  private final PitchBendBinding[] pitchBendBindings;
 
   private final LXMidiInput input;
   private final LXMidiOutput output;
@@ -413,6 +454,10 @@ public class LXMidiDevice implements LXMidiListener {
       this.noteOnBindings[i] = null;
       this.noteOffBindings[i] = null;
       this.controllerBindings[i] = null;
+    }
+    this.pitchBendBindings = new PitchBendBinding[MIDI_CHANNELS];
+    for (int i = 0; i < MIDI_CHANNELS; ++i) {
+      this.pitchBendBindings[i] = null;
     }
   }
 
@@ -605,6 +650,23 @@ public class LXMidiDevice implements LXMidiListener {
     return this;
   }
 
+  public LXMidiDevice bindBitchBend(LXParameter parameter) {
+    bindPitchBend(parameter, ANY_CHANNEL);
+    return this;
+  }
+
+  public LXMidiDevice bindPitchBend(LXParameter parameter, int channel) {
+    if (channel == ANY_CHANNEL) {
+      for (int i = 0; i < MIDI_CHANNELS; ++i) {
+        bindPitchBend(parameter, i);
+      }
+    } else {
+      unbindPitchBend(channel);
+      this.pitchBendBindings[channel] = new PitchBendBinding(parameter, channel);
+    }
+    return this;
+  }
+
   public LXMidiDevice unbindNote(int number) {
     return unbindNote(ANY_CHANNEL, number);
   }
@@ -682,6 +744,25 @@ public class LXMidiDevice implements LXMidiListener {
   public LXMidiDevice unbindNotes(int[] channels, int note) {
     for (int i = 0; i < channels.length; ++i) {
       unbindNote(channels[i], note);
+    }
+    return this;
+  }
+
+  public LXMidiDevice unbindPitchBend() {
+    unbindPitchBend(ANY_CHANNEL);
+    return this;
+  }
+
+  public LXMidiDevice unbindPitchBend(int channel) {
+    if (channel == ANY_CHANNEL) {
+      for (int i = 0; i < MIDI_CHANNELS; ++i) {
+        unbindPitchBend(i);
+      }
+    } else {
+      if (pitchBendBindings[channel] != null) {
+        pitchBendBindings[channel].unbind();
+        pitchBendBindings[channel] = null;
+      }
     }
     return this;
   }
@@ -782,6 +863,10 @@ public class LXMidiDevice implements LXMidiListener {
     if (this.logEvents) {
       System.out.println(this.input.getName() + ":pitchBend:"
           + pitchBend.getChannel() + ":" + pitchBend.getPitchBend());
+    }
+    int index = pitchBend.getChannel();
+    if (this.pitchBendBindings[index] != null) {
+      this.pitchBendBindings[index].pitchBendReceived(pitchBend);
     }
     pitchBend(pitchBend);
   }

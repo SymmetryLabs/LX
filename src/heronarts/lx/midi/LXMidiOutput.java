@@ -87,4 +87,11 @@ public class LXMidiOutput implements Receiver {
     sendShortMessage(ShortMessage.CONTROL_CHANGE, channel, cc, value);
   }
 
+  public void sendPitchBend(int channel, int value) {
+    int v = value + 0x2000;
+    int data1 = v & 0x7F;
+    int data2 = (v >> 7) & 0x7F;
+    sendShortMessage(ShortMessage.PITCH_BEND, channel, data1, data2);
+  }
+
 }
