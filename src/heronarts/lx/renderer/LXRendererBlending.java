@@ -4,7 +4,6 @@ import heronarts.lx.LX;
 import heronarts.lx.parameter.BasicParameter;
 import heronarts.lx.transition.DissolveTransition;
 import heronarts.lx.transition.LXTransition;
-import heronarts.lx.utils.LXObservable;
 import heronarts.lx.utils.LXVar;
 
 public class LXRendererBlending {
@@ -24,7 +23,7 @@ public class LXRendererBlending {
     return this.transition.get();
   }
 
-  public LXObservable<LXTransition> getTransitionObservable() {
+  public LXVar<LXTransition> getTransitionObservable() {
     return this.transition;
   }
 
