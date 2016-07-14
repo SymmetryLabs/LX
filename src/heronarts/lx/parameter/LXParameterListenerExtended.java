@@ -11,6 +11,6 @@ public interface LXParameterListenerExtended extends LXParameterListener {
    *
    * @param parameter The parameter that will change its value
    */
-  public void onParameterWillChange(LXParameter parameter);
+  public void onParameterWillChange(LXParameter parameter, double newValue);
 
 }
