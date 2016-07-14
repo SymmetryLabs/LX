@@ -58,6 +58,14 @@ public abstract class LXListenableParameter implements LXParameter {
     return this;
   }
 
+  public final LXListenableParameter addListenerWithInit(LXParameterListener listener) {
+    addListener(listener);
+    for (LXParameterListener l : listeners) {
+      l.onParameterChanged(this);
+    }
+    return this;
+  }
+
   public final LXListenableParameter removeListener(LXParameterListener listener) {
     listeners.remove(listener);
     return this;
