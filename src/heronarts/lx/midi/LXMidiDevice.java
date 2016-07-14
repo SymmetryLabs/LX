@@ -42,11 +42,11 @@ public class LXMidiDevice implements LXMidiListener {
   public final static int NOTE_VELOCITY = -1;
   public final static int CC_VALUE = -1;
 
-  private final static int OFF = -1;
+  public final static int OFF = -1;
   public final static int DIRECT = 1;
   public final static int TOGGLE = 2;
-  private final static int DISCRETE = 3;
-  private final static int DISCRETE_OFF = 4;
+  public final static int DISCRETE = 3;
+  public final static int DISCRETE_OFF = 4;
 
   public final static int ALWAYS_USE_NOTE_ON = 1;
 
@@ -514,12 +514,12 @@ public class LXMidiDevice implements LXMidiListener {
     return bindNoteOn(parameter, channel, number, mode, value, 0);
   }
 
-  private LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
+  public LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
       int number, int mode, int value, int secondary) {
     return bindNoteOn(parameter, channel, number, mode, value, secondary, 0);
   }
 
-  private LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
+  public LXMidiDevice bindNoteOn(LXParameter parameter, int channel,
       int number, int mode, int value, int secondary, int flags) {
     if (channel == ANY_CHANNEL) {
       for (int i = 0; i < MIDI_CHANNELS; ++i) {
