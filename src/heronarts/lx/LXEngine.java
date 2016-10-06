@@ -218,7 +218,7 @@ public class LXEngine extends LXParameterized {
   long nowMillis = 0;
   private long lastMillis;
 
-  private boolean isThreaded = false;
+  private volatile boolean isThreaded = false;
   private boolean isPatternConcurrencyEnabled = false;
   private Thread engineThread = null;
 
@@ -260,12 +260,12 @@ public class LXEngine extends LXParameterized {
    * @return How many FPS the engine is running
    */
   public float frameRate() {
-    return this.isThreaded ? this.frameRate : 0;
+    return this.frameRate;
   }
 
   /**
-   * Whether the engine is threaded. Should only be called from Processing
-   * animation thread.
+   * Whether the engine is threaded. Generally, this should only be called
+   * from the Processing animation thread.
    *
    * @return Whether the engine is threaded
    */
@@ -314,7 +314,8 @@ public class LXEngine extends LXParameterized {
           try {
             this.engineThread.join();
           } catch (InterruptedException ix) {
-            throw new IllegalThreadStateException("Interrupted waiting to join LXEngine thread");
+            throw new IllegalThreadStateException(
+              "Interrupted waiting to join LXEngine thread");
           }
         }
       } else {
@@ -354,8 +355,9 @@ public class LXEngine extends LXParameterized {
             l.lock();
             try {
               // We are done threading
-              LXEngine.this.engineThread = null;
-              LXEngine.this.isThreaded = false;
+              frameRate = 0;
+              engineThread = null;
+              isThreaded = false;
             } finally {
               l.unlock();
             }
