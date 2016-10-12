@@ -6,10 +6,14 @@ package heronarts.lx.parameter;
  */
 public interface LXParameterListenerExtended extends LXParameterListener {
 
+  public void onParameterValueWillSet(LXParameter parameter, double newValue);
+  public void onParameterValueDidSet(LXParameter parameter);
+
   /**
    * Invoked when the value of a parameter is about to change.
    *
    * @param parameter The parameter that will change its value
+   * @param newValue The new value that parameter will be set to
    */
   public void onParameterWillChange(LXParameter parameter, double newValue);
 

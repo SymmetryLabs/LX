@@ -92,6 +92,11 @@ public abstract class LXListenableParameter implements LXParameter {
   }
 
   public final LXParameter setValue(double value) {
+    for (LXParameterListener l : listeners) {
+      if (l instanceof LXParameterListenerExtended) {
+        ((LXParameterListenerExtended)l).onParameterValueWillSet(this, value);
+      }
+    }
     if (this.value != value) {
       for (LXParameterListener l : listeners) {
         if (l instanceof LXParameterListenerExtended) {
@@ -101,6 +106,11 @@ public abstract class LXListenableParameter implements LXParameter {
       this.value = updateValue(value);
       for (LXParameterListener l : listeners) {
         l.onParameterChanged(this);
+      }
+    }
+    for (LXParameterListener l : listeners) {
+      if (l instanceof LXParameterListenerExtended) {
+        ((LXParameterListenerExtended)l).onParameterValueDidSet(this);
       }
     }
     return this;
