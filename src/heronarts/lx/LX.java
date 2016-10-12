@@ -507,6 +507,11 @@ public class LX {
     return setPaused(!this.engine.isPaused());
   }
 
+  public LX dispatchEngine(Runnable runnable) {
+    this.engine.dispatch(runnable);
+    return this;
+  }
+
   /**
    * Sets the main channel to the previous pattern.
    *

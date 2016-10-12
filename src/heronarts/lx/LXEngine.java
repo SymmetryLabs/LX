@@ -32,14 +32,15 @@ import heronarts.lx.renderer.LXRenderer;
 import heronarts.lx.renderer.LeftToRightRenderer;
 import heronarts.lx.transition.LXTransition;
 import heronarts.lx.utils.IteratorModifiableArrayList;
+import heronarts.lx.utils.LXDispatchQueue;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-
-import com.googlecode.concurentlocks.ReadWriteUpdateLock;
-import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * The engine is the core class that runs the internal animations. An engine is
@@ -72,6 +73,8 @@ public class LXEngine extends LXParameterized {
 
   private Dispatch inputDispatch = null;
 
+  private ExecutorService channelThreadPool = Executors.newCachedThreadPool();
+
   private final List<LXLoopTask> loopTasks = new IteratorModifiableArrayList<LXLoopTask>();
   private final List<LXChannel> channels = new ArrayList<LXChannel>();
   private final List<LXEffect> effects = new ArrayList<LXEffect>();
@@ -87,9 +90,7 @@ public class LXEngine extends LXParameterized {
 
   public final BasicParameter framesPerSecond = new BasicParameter("FPS", 60, 0, 300);
 
-  private float frameRate = 0;
-
-  private final ReadWriteUpdateLock engineModificationLock = new ReentrantReadWriteUpdateLock();
+  private volatile float frameRate = 0;
 
   public interface Dispatch {
     public void dispatch();
@@ -108,59 +109,39 @@ public class LXEngine extends LXParameterized {
   }
 
   public final LXEngine addListener(Listener listener) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    dispatchQueue.queue(() -> {
       this.listeners.add(listener);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public final LXEngine removeListener(Listener listener) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    dispatchQueue.queue(() -> {
       this.listeners.remove(listener);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public final LXEngine addMessageListener(MessageListener listener) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    dispatchQueue.queue(() -> {
       this.messageListeners.add(listener);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public final LXEngine removeMessageListener(MessageListener listener) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    dispatchQueue.queue(() -> {
       this.messageListeners.remove(listener);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public LXEngine broadcastMessage(String message) {
-    Lock l = this.engineModificationLock.updateLock();
-    l.lock();
-    try {
+    dispatchQueue.queue(() -> {
       for (MessageListener listener : this.messageListeners) {
         listener.onMessage(this, message);
       }
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
@@ -218,13 +199,14 @@ public class LXEngine extends LXParameterized {
   long nowMillis = 0;
   private long lastMillis;
 
+  private final LXDispatchQueue dispatchQueue = new LXDispatchQueue(false);
   private volatile boolean isThreaded = false;
-  private boolean isPatternConcurrencyEnabled = false;
-  private Thread engineThread = null;
+  private volatile boolean isPatternConcurrencyEnabled = false;
+  private volatile Thread engineThread = null;
 
   public final BasicParameter speed = new BasicParameter("SPEED", 1, 0, 2);
 
-  private boolean paused = false;
+  private volatile boolean paused = false;
 
   LXEngine(LX lx) {
     this.lx = lx;
@@ -270,12 +252,7 @@ public class LXEngine extends LXParameterized {
    * @return Whether the engine is threaded
    */
   public boolean isThreaded() {
-    Lock l = this.acquireReadLock();
-    try {
-      return this.isThreaded;
-    } finally {
-      unlock(l);
-    }
+    return this.isThreaded;
   }
 
   /**
@@ -300,96 +277,82 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine setThreaded(boolean threaded) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
-      if (threaded == this.isThreaded) {
-        return this;
-      }
-      if (!threaded) {
+    if (threaded == this.isThreaded) {
+      return this;
+    }
+    if (!threaded) {
+      Thread engineThread = this.engineThread;
+      if (engineThread != null) {
         // Set interrupt flag on the engine thread
-        this.engineThread.interrupt();
-        if (Thread.currentThread() != this.engineThread) {
+        engineThread.interrupt();
+        if (Thread.currentThread() != engineThread) {
           // Called from another thread? If so, wait for engine thread to finish
           try {
-            this.engineThread.join();
+            engineThread.join();
           } catch (InterruptedException ix) {
             throw new IllegalThreadStateException(
               "Interrupted waiting to join LXEngine thread");
           }
         }
-      } else {
-        this.isThreaded = true;
-        // Copy the current frame to avoid a black frame
-        for (int i = 0; i < this.buffer.render.length; ++i) {
-          this.buffer.copy[i] = this.buffer.render[i];
-        }
-        this.engineThread = new Thread("LX Engine Thread") {
-          @Override
-          public void run() {
-            System.out.println("LX Engine Thread started.");
-            while (!isInterrupted()) {
-              long frameStart = System.currentTimeMillis();
-              LXEngine.this.run();
-              synchronized (buffer) {
-                buffer.flip();
-              }
-              long frameMillis = System.currentTimeMillis() - frameStart;
-              frameRate = 1000.f / frameMillis;
-              float targetFPS = framesPerSecond.getValuef();
-              if (targetFPS > 0) {
-                long minMillisPerFrame = (long) (1000. / targetFPS);
-                if (frameMillis < minMillisPerFrame) {
-                  frameRate = targetFPS;
-                  try {
-                    sleep(minMillisPerFrame - frameMillis);
-                  } catch (InterruptedException ix) {
-                    // We're done!
-                    break;
-                  }
+        this.dispatchQueue.setThreadIdToCurrentThread();
+        this.dispatchQueue.setForceAsync(false);
+      }
+    } else {
+      this.isThreaded = true;
+      // Copy the current frame to avoid a black frame
+      for (int i = 0; i < this.buffer.render.length; ++i) {
+        this.buffer.copy[i] = this.buffer.render[i];
+      }
+      this.dispatchQueue.setForceAsync(true);
+      this.engineThread = new Thread("LX Engine Thread") {
+        @Override
+        public void run() {
+          System.out.println("LX Engine Thread started.");
+          dispatchQueue.setThreadIdToCurrentThread();
+          while (!isInterrupted()) {
+            long frameStart = System.currentTimeMillis();
+            LXEngine.this.run();
+            synchronized (buffer) {
+              buffer.flip();
+            }
+            long frameMillis = System.currentTimeMillis() - frameStart;
+            frameRate = 1000.f / frameMillis;
+            float targetFPS = framesPerSecond.getValuef();
+            if (targetFPS > 0) {
+              long minMillisPerFrame = (long) (1000. / targetFPS);
+              if (frameMillis < minMillisPerFrame) {
+                frameRate = targetFPS;
+                try {
+                  sleep(minMillisPerFrame - frameMillis);
+                } catch (InterruptedException ix) {
+                  // We're done!
+                  break;
                 }
               }
             }
-
-            Lock l = LXEngine.this.engineModificationLock.writeLock();
-            l.lock();
-            try {
-              // We are done threading
-              frameRate = 0;
-              engineThread = null;
-              isThreaded = false;
-            } finally {
-              l.unlock();
-            }
-            System.out.println("LX Engine Thread finished.");
           }
-        };
-        this.engineThread.start();
-      }
-    } finally {
-      l.unlock();
+
+          // We are done threading
+          frameRate = 0;
+          engineThread = null;
+          isThreaded = false;
+          System.out.println("LX Engine Thread finished.");
+        }
+      };
+      this.engineThread.start();
     }
     return this;
   }
 
   public LXEngine setPatternConcurrencyEnabled(boolean enabled) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.isPatternConcurrencyEnabled = enabled;
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public boolean isPatternConcurrencyEnabled() {
-    Lock l = this.acquireReadLock();
-    try {
-      return this.isPatternConcurrencyEnabled;
-    } finally {
-      unlock(l);
-    }
+    return this.isPatternConcurrencyEnabled;
   }
 
   public LXEngine setSpeed(double speed) {
@@ -404,23 +367,19 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine setPaused(boolean paused) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.paused = paused;
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public boolean isPaused() {
-    Lock l = this.acquireReadLock();
-    try {
-      return this.paused;
-    } finally {
-      unlock(l);
-    }
+    return this.paused;
+  }
+
+  public LXEngine dispatch(Runnable runnable) {
+    this.dispatchQueue.queue(runnable);
+    return this;
   }
 
   public LXEngine addComponent(LXComponent component) {
@@ -440,26 +399,18 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine addLoopTask(LXLoopTask loopTask) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       if (!this.loopTasks.contains(loopTask)) {
         this.loopTasks.add(loopTask);
       }
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public LXEngine removeLoopTask(LXLoopTask loopTask) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.loopTasks.remove(loopTask);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
@@ -468,30 +419,22 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine addEffect(LXEffect fx) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.effects.add(fx);
       for (Listener listener : this.listeners) {
         listener.effectAdded(this, fx);
       }
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
   public LXEngine removeEffect(LXEffect fx) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.effects.remove(fx);
       for (Listener listener : this.listeners) {
         listener.effectRemoved(this, fx);
       }
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
@@ -502,13 +445,9 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine addOutput(LXOutput output) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.outputs.add(output);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
@@ -519,13 +458,9 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine removeOutput(LXOutput output) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       this.outputs.remove(output);
-    } finally {
-      l.unlock();
-    }
+    });
     return this;
   }
 
@@ -538,42 +473,30 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXChannel getChannel(int channelIndex) {
-    Lock l = this.acquireReadLock();
-    try {
-      return this.channels.get(channelIndex);
-    } finally {
-      unlock(l);
-    }
+    return this.channels.get(channelIndex);
   }
 
   public LXChannel getFocusedChannel() {
     return getChannel(focusedChannel.getValuei());
   }
 
-  public LXChannel addChannel() {
-    return addChannel(new LXPattern[] { new SolidColorPattern(lx, 0xff000000) });
+  public void addChannel() {
+    addChannel(new LXPattern[] { new SolidColorPattern(lx, 0xff000000) });
   }
 
-  public LXChannel addChannel(LXPattern[] patterns) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
-      LXChannel channel = new LXChannel(lx, this.channels.size(), patterns);
-      this.channels.add(channel);
-      this.focusedChannel.setRange(this.channels.size());
-      for (Listener listener : this.listeners) {
-        listener.channelAdded(this, channel);
-      }
-      return channel;
-    } finally {
-      l.unlock();
-    }
+  public void addChannel(LXPattern[] patterns) {
+    this.dispatchQueue.queue(() -> {
+        LXChannel channel = new LXChannel(lx, this.channels.size(), patterns);
+        this.channels.add(channel);
+        this.focusedChannel.setRange(this.channels.size());
+        for (Listener listener : this.listeners) {
+          listener.channelAdded(this, channel);
+        }
+    });
   }
 
   public void removeChannel(LXChannel channel) {
-    Lock l = this.engineModificationLock.writeLock();
-    l.lock();
-    try {
+    this.dispatchQueue.queue(() -> {
       if (this.channels.remove(channel)) {
         int i = 0;
         for (LXChannel c : this.channels) {
@@ -584,9 +507,7 @@ public class LXEngine extends LXParameterized {
           listener.channelRemoved(this, channel);
         }
       }
-    } finally {
-      l.unlock();
-    }
+    });
   }
 
   public void setPatterns(LXPattern[] patterns) {
@@ -646,8 +567,6 @@ public class LXEngine extends LXParameterized {
   }
 
   public void run() {
-    Lock l = this.engineModificationLock.updateLock();
-    l.lock();
     try {
       long runStart = System.nanoTime();
 
@@ -655,6 +574,8 @@ public class LXEngine extends LXParameterized {
       this.nowMillis = System.currentTimeMillis();
       double deltaMs = this.nowMillis - this.lastMillis;
       this.lastMillis = this.nowMillis;
+
+      this.dispatchQueue.executeAll();
 
       if (this.paused) {
         this.timer.channelNanos = 0;
@@ -687,28 +608,23 @@ public class LXEngine extends LXParameterized {
         }
 
         final double finalDeltaMs = deltaMs;
-        List<Thread> channelThreads = new ArrayList<Thread>(this.channels.size());
+        List<Future<?>> channelThreads = new ArrayList<Future<?>>(this.channels.size());
         for (LXChannel channel : this.channels) {
           if (channel.enabled.isOn()) {
             channelCount--;
             if (channelCount == 0) {
               channel.loop(deltaMs);
             } else {
-              Thread channelThread = new Thread("Channel " + channel.getIndex() + " Loop Thread") {
-                @Override
-                public void run() {
-                  channel.loop(finalDeltaMs);
-                }
-              };
-              channelThread.start();
-              channelThreads.add(channelThread);
+              channelThreads.add(this.channelThreadPool.submit(() -> {
+                channel.loop(finalDeltaMs);
+              }));
             }
           }
         }
-        for (Thread thread : channelThreads) {
+        for (Future<?> thread : channelThreads) {
           try {
-            thread.join();
-          } catch (InterruptedException e) {
+            thread.get();
+          } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
           }
         }
@@ -768,26 +684,8 @@ public class LXEngine extends LXParameterized {
       this.timer.outputNanos = System.nanoTime() - outputStart;
 
       this.timer.runNanos = System.nanoTime() - runStart;
-    } finally {
-      l.unlock();
-    }
-  }
-
-  private Lock acquireReadLock() {
-    Lock l = this.engineModificationLock.readLock();
-    try {
-      l.lock();
-    } catch (IllegalStateException e) {
-      // Current thread already holding update lock.
-      // Safe to skip getting read lock
-      return null;
-    }
-    return l;
-  }
-
-  private void unlock(Lock l) {
-    if (l != null) {
-      l.unlock();
+    } catch (Exception e) {
+      System.exit(1);
     }
   }
 
