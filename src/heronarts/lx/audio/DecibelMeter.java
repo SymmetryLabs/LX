@@ -131,6 +131,8 @@ public class DecibelMeter extends LXModulator {
   protected void runEnvelope(double deltaMs, LinearEnvelope env,
       double rawLevel, double slopeGain) {
 
+    env.loop(deltaMs);
+
     double minLevel = -this.range.getValue();
     double dbLevel = minLevel;
     if (rawLevel > 0) {
@@ -146,10 +148,11 @@ public class DecibelMeter extends LXModulator {
 
     if (dbLevel > env.getValue()) {
       env.setRangeFromHereTo(dbLevel, attack.getValue()).trigger();
-    }
-    env.loop(deltaMs);
-    if (!env.isRunning() && env.getValue() > minLevel) {
-      env.setRangeFromHereTo(minLevel, release.getValue()).trigger();
+    } else {
+      double lowerLimit = Math.max(dbLevel, minLevel);
+      if (env.getValue() > lowerLimit) {
+        env.setRangeFromHereTo(lowerLimit, release.getValue()).trigger();
+      }
     }
   }
 }
