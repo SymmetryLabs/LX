@@ -18,6 +18,10 @@
 
 package heronarts.lx.modulator;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import heronarts.lx.LXLoopTask;
 import heronarts.lx.LXRunnable;
 import heronarts.lx.parameter.LXParameter;
 
@@ -44,6 +48,8 @@ public abstract class LXModulator extends LXRunnable implements LXParameter {
    * Quick helper to get two times PI.
    */
   public static final double TWO_PI = Math.PI * 2.;
+
+  private List<LXLoopTask> loopTasks;
 
   /**
    * Utility default constructor
@@ -89,6 +95,29 @@ public abstract class LXModulator extends LXRunnable implements LXParameter {
     return this;
   }
 
+  public void addModulator(LXModulator modulator) {
+    addLoopTask(modulator);
+  }
+
+  public void removeModulator(LXModulator modulator) {
+    removeLoopTask(modulator);
+  }
+
+  public void addLoopTask(LXLoopTask loopTask) {
+    getLoopTasks().add(loopTask);
+  }
+
+  public void removeLoopTask(LXLoopTask loopTask) {
+    getLoopTasks().remove(loopTask);
+  }
+
+  private List<LXLoopTask> getLoopTasks() {
+    if (this.loopTasks == null) {
+      this.loopTasks = new ArrayList<LXLoopTask>();
+    }
+    return this.loopTasks;
+  }
+
   /**
    * Subclasses may override when actions are necessary on value change.
    *
@@ -120,6 +149,11 @@ public abstract class LXModulator extends LXRunnable implements LXParameter {
   @Override
   protected final void run(double deltaMs) {
     this.value = this.computeValue(deltaMs);
+    if (this.loopTasks != null) {
+      for (int i = 0; i < this.loopTasks.size(); i++) {
+        this.loopTasks.get(i).loop(deltaMs);
+      }
+    }
   }
 
   /**
