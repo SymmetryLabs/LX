@@ -24,7 +24,7 @@ package heronarts.lx.parameter;
 public class BasicParameter extends LXListenableNormalizedParameter {
 
   public enum Scaling {
-    LINEAR, QUAD_IN, QUAD_OUT
+    LINEAR, QUAD_IN, QUAD_OUT, LOG
   };
 
   public class Range {
@@ -53,6 +53,8 @@ public class BasicParameter extends LXListenableNormalizedParameter {
    * Range of the parameter
    */
   public final Range range;
+
+  private final double logScale;
 
   /**
    * Labeled parameter with value of 0 and range of 0-1
@@ -86,6 +88,7 @@ public class BasicParameter extends LXListenableNormalizedParameter {
     super(label, (value < Math.min(v0, v1)) ? Math.min(v0, v1) : ((value > Math
         .max(v0, v1)) ? Math.max(v0, v1) : value));
     this.range = new Range(v0, v1, scaling);
+    this.logScale = Math.log(this.range.max / this.range.min);
   }
 
   /**
@@ -107,6 +110,9 @@ public class BasicParameter extends LXListenableNormalizedParameter {
     case QUAD_OUT:
       normalized = 1 - (1 - normalized) * (1 - normalized);
       break;
+    case LOG:
+      setValue(Math.exp(normalized * this.logScale) * this.range.min);
+      return this;
     default:
     case LINEAR:
       break;
@@ -132,6 +138,9 @@ public class BasicParameter extends LXListenableNormalizedParameter {
       break;
     case QUAD_OUT:
       normalized = 1 - Math.sqrt(1 - normalized);
+      break;
+    case LOG:
+      normalized = Math.log(getValue() / this.range.min) / this.logScale;
       break;
     default:
     case LINEAR:
