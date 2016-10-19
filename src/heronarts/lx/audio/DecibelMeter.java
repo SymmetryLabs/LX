@@ -33,7 +33,7 @@ public class DecibelMeter extends LXModulator {
 
   protected static final double LOG_10 = Math.log(10);
 
-  private final LinearEnvelope decibels;
+  public final LinearEnvelope decibels;
 
   protected final AudioBuffer buffer;
 
