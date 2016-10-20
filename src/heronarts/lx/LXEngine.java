@@ -109,35 +109,35 @@ public class LXEngine extends LXParameterized {
   }
 
   public final LXEngine addListener(Listener listener) {
-    dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.listeners.add(listener);
     });
     return this;
   }
 
   public final LXEngine removeListener(Listener listener) {
-    dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.listeners.remove(listener);
     });
     return this;
   }
 
   public final LXEngine addMessageListener(MessageListener listener) {
-    dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.messageListeners.add(listener);
     });
     return this;
   }
 
   public final LXEngine removeMessageListener(MessageListener listener) {
-    dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.messageListeners.remove(listener);
     });
     return this;
   }
 
   public LXEngine broadcastMessage(String message) {
-    dispatchQueue.queue(() -> {
+    dispatch(() -> {
       for (MessageListener listener : this.messageListeners) {
         listener.onMessage(this, message);
       }
@@ -345,7 +345,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine setPatternConcurrencyEnabled(boolean enabled) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.isPatternConcurrencyEnabled = enabled;
     });
     return this;
@@ -367,7 +367,7 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine setPaused(boolean paused) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.paused = paused;
     });
     return this;
@@ -399,7 +399,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine addLoopTask(LXLoopTask loopTask) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       if (!this.loopTasks.contains(loopTask)) {
         this.loopTasks.add(loopTask);
       }
@@ -408,7 +408,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine removeLoopTask(LXLoopTask loopTask) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.loopTasks.remove(loopTask);
     });
     return this;
@@ -419,7 +419,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine addEffect(LXEffect fx) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.effects.add(fx);
       for (Listener listener : this.listeners) {
         listener.effectAdded(this, fx);
@@ -429,7 +429,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public LXEngine removeEffect(LXEffect fx) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.effects.remove(fx);
       for (Listener listener : this.listeners) {
         listener.effectRemoved(this, fx);
@@ -445,7 +445,7 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine addOutput(LXOutput output) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.outputs.add(output);
     });
     return this;
@@ -458,7 +458,7 @@ public class LXEngine extends LXParameterized {
    * @return this
    */
   public LXEngine removeOutput(LXOutput output) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       this.outputs.remove(output);
     });
     return this;
@@ -485,7 +485,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public void addChannel(LXPattern[] patterns) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
         LXChannel channel = new LXChannel(lx, this.channels.size(), patterns);
         this.channels.add(channel);
         this.focusedChannel.setRange(this.channels.size());
@@ -496,7 +496,7 @@ public class LXEngine extends LXParameterized {
   }
 
   public void removeChannel(LXChannel channel) {
-    this.dispatchQueue.queue(() -> {
+    dispatch(() -> {
       if (this.channels.remove(channel)) {
         int i = 0;
         for (LXChannel c : this.channels) {

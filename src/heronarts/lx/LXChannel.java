@@ -143,7 +143,7 @@ public class LXChannel extends LXComponent {
     this.buffer = new ModelBuffer(lx);
     this.rendererBlending = new LXRendererBlending(lx);
     this.transitionMillis = System.currentTimeMillis();
-    _updatePatterns(patterns, false);
+    _updatePatterns(patterns);
     this.colors = this.getActivePattern().getColors();
 
     addParameter(this.enabled);
@@ -168,19 +168,19 @@ public class LXChannel extends LXComponent {
   }
 
   public final void addListener(Listener listener) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.listeners.add(listener);
     });
   }
 
   public final void removeListener(Listener listener) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.listeners.remove(listener);
     });
   }
 
   final LXChannel setIndex(int index) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.index = index;
     });
     return this;
@@ -195,7 +195,7 @@ public class LXChannel extends LXComponent {
   }
 
   public final LXChannel addEffect(LXEffect effect) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.effects.add(effect);
       for (Listener listener : this.listeners) {
         listener.effectAdded(this, effect);
@@ -205,7 +205,7 @@ public class LXChannel extends LXComponent {
   }
 
   public final LXChannel removeEffect(LXEffect effect) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.effects.remove(effect);
       for (Listener listener : this.listeners) {
         listener.effectRemoved(this, effect);
@@ -232,9 +232,9 @@ public class LXChannel extends LXComponent {
   }
 
   public final LXChannel setPatterns(LXPattern[] patterns) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       getActivePattern().onInactive();
-      _updatePatterns(patterns, true);
+      _updatePatterns(patterns);
       this.activePatternIndex = this.nextPatternIndex = 0;
       this.transition = null;
       getActivePattern().onActive();
@@ -243,11 +243,7 @@ public class LXChannel extends LXComponent {
   }
 
   public final LXChannel addPattern(LXPattern pattern) {
-    return addPattern(pattern, true);
-  }
-
-  private final LXChannel addPattern(LXPattern pattern, boolean allowAsync) {
-    Runnable run = () -> {
+    dispatchEngine(() -> {
       pattern.setChannel(this);
       ((LXComponent)pattern).setModel(this.model);
       ((LXComponent)pattern).setPalette(this.palette);
@@ -255,17 +251,12 @@ public class LXChannel extends LXComponent {
       for (Listener listener : this.listeners) {
         listener.patternAdded(this, pattern);
       }
-    };
-    if (allowAsync) {
-      lx.engine.dispatch(run);
-    } else {
-      run.run();
-    }
+    });
     return this;
   }
 
   public final LXChannel removePattern(LXPattern pattern) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       if (this.patterns.size() <= 1) {
         throw new UnsupportedOperationException("LXChannel must have at least one pattern");
       }
@@ -293,7 +284,7 @@ public class LXChannel extends LXComponent {
     return this;
   }
 
-  private void _updatePatterns(LXPattern[] patterns, boolean allowAsync) {
+  private void _updatePatterns(LXPattern[] patterns) {
     if (patterns == null) {
       throw new IllegalArgumentException("May not set null pattern array");
     }
@@ -311,7 +302,7 @@ public class LXChannel extends LXComponent {
       if (pattern == null) {
         throw new IllegalArgumentException("Pattern array may not include null elements");
       }
-      addPattern(pattern, allowAsync);
+      addPattern(pattern);
     }
   }
 
@@ -339,7 +330,7 @@ public class LXChannel extends LXComponent {
     if (this.transition != null) {
       return this;
     }
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.nextPatternIndex = this.activePatternIndex - 1;
       if (this.nextPatternIndex < 0) {
         this.nextPatternIndex = this.patterns.size() - 1;
@@ -353,7 +344,7 @@ public class LXChannel extends LXComponent {
     if (this.transition != null) {
       return this;
     }
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.nextPatternIndex = this.activePatternIndex;
       do {
         this.nextPatternIndex = (this.nextPatternIndex + 1)
@@ -368,7 +359,7 @@ public class LXChannel extends LXComponent {
   }
 
   public final void goPattern(LXPattern pattern) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       int pi = 0;
       for (LXPattern p : this.patterns) {
         if (p == pattern) {
@@ -386,7 +377,7 @@ public class LXChannel extends LXComponent {
     if (i < 0 || i >= this.patterns.size()) {
       return this;
     }
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.nextPatternIndex = i;
       startTransition();
     });
@@ -394,14 +385,14 @@ public class LXChannel extends LXComponent {
   }
 
   public LXChannel disableAutoTransition() {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.autoTransitionEnabled.setValue(false);
     });
     return this;
   }
 
   public LXChannel enableAutoTransition(int autoTransitionThreshold) {
-    lx.engine.dispatch(() -> {
+    dispatchEngine(() -> {
       this.autoTransitionThreshold = autoTransitionThreshold;
       if (!this.autoTransitionEnabled.isOn()) {
         this.autoTransitionEnabled.setValue(true);
@@ -421,42 +412,46 @@ public class LXChannel extends LXComponent {
     return this.autoTransitionEnabled.isOn();
   }
 
+  protected void dispatchEngine(Runnable runnable) {
+    if (this.lx.engine != null) {
+      lx.engine.dispatch(runnable);
+    } else {
+      runnable.run();
+    }
+  }
+
   private void startTransition() {
-    lx.engine.dispatch(() -> {
-      LXPattern activePattern = getActivePattern();
-      LXPattern nextPattern = getNextPattern();
-      if (activePattern == nextPattern) {
-        return;
-      }
-      nextPattern.onActive();
-      for (Listener listener : this.listeners) {
-        listener.patternWillChange(this, activePattern, nextPattern);
-      }
-      this.transition = nextPattern.getTransition();
-      if (this.transition == null) {
-        finishTransition();
-      } else {
-        nextPattern.onTransitionStart();
-        this.transition.blend(activePattern.getColors(), nextPattern.getColors(), 0);
-        this.transitionMillis = System.currentTimeMillis();
-      }
-    });
+    LXPattern activePattern = getActivePattern();
+    LXPattern nextPattern = getNextPattern();
+    if (activePattern == nextPattern) {
+      return;
+    }
+    nextPattern.onActive();
+    for (Listener listener : this.listeners) {
+      listener.patternWillChange(this, activePattern, nextPattern);
+    }
+    this.transition = nextPattern.getTransition();
+    if (this.transition == null) {
+      finishTransition();
+    } else {
+      nextPattern.onTransitionStart();
+      this.transition.blend(activePattern.getColors(), nextPattern.getColors(), 0);
+      this.transitionMillis = System.currentTimeMillis();
+    }
   }
 
   private void finishTransition() {
-    lx.engine.dispatch(() -> {
-      getActivePattern().onInactive();
-      this.activePatternIndex = this.nextPatternIndex;
-      LXPattern activePattern = getActivePattern();
-      if (this.transition != null) {
-        activePattern.onTransitionEnd();
-      }
-      this.transition = null;
-      this.transitionMillis = System.currentTimeMillis();
-      for (Listener listener : listeners) {
-        listener.patternDidChange(this, activePattern);
-      }
-    });
+    getActivePattern().onInactive();
+    this.activePatternIndex = this.nextPatternIndex;
+    LXPattern activePattern = getActivePattern();
+    if (this.transition != null) {
+      activePattern.onTransitionEnd();
+    }
+    this.transition = null;
+    this.transitionMillis = System.currentTimeMillis();
+    for (Listener listener : listeners) {
+      listener.patternDidChange(this, activePattern);
+    }
   }
 
   @Override

@@ -38,7 +38,7 @@ public abstract class LXPattern extends LXBufferedComponent {
   /**
    * Transition used when this pattern becomes active.
    */
-  protected LXTransition transition = null;
+  protected volatile LXTransition transition = null;
 
   private int intervalBegin = -1;
 
@@ -189,7 +189,9 @@ public abstract class LXPattern extends LXBufferedComponent {
    * @return this
    */
   public final LXPattern setTransition(LXTransition transition) {
-    this.transition = transition;
+    dispatchEngine(() -> {
+      this.transition = transition;
+    });
     return this;
   }
 
@@ -200,6 +202,14 @@ public abstract class LXPattern extends LXBufferedComponent {
    */
   public final LXTransition getTransition() {
     return transition;
+  }
+
+  protected void dispatchEngine(Runnable runnable) {
+    if (this.lx.engine != null && this.channel != null) {
+      lx.engine.dispatch(runnable);
+    } else {
+      runnable.run();
+    }
   }
 
   @Override
