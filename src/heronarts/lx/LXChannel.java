@@ -489,7 +489,7 @@ public class LXChannel extends LXComponent {
             try {
               patternThread.get();
             } catch (InterruptedException | ExecutionException e) {
-              e.printStackTrace();
+              throw new RuntimeException(e);
             }
         }
         this.transition.loop(deltaMs);

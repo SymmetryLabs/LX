@@ -625,7 +625,7 @@ public class LXEngine extends LXParameterized {
           try {
             thread.get();
           } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
           }
         }
       } else {
@@ -685,6 +685,7 @@ public class LXEngine extends LXParameterized {
 
       this.timer.runNanos = System.nanoTime() - runStart;
     } catch (Exception e) {
+      e.printStackTrace();
       System.exit(1);
     }
   }
