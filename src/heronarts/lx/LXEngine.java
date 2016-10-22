@@ -295,7 +295,6 @@ public class LXEngine extends LXParameterized {
           }
         }
         this.dispatchQueue.setThreadIdToCurrentThread();
-        this.dispatchQueue.setForceAsync(false);
       }
     } else {
       this.isThreaded = true;
@@ -303,7 +302,6 @@ public class LXEngine extends LXParameterized {
       for (int i = 0; i < this.buffer.render.length; ++i) {
         this.buffer.copy[i] = this.buffer.render[i];
       }
-      this.dispatchQueue.setForceAsync(true);
       this.engineThread = new Thread("LX Engine Thread") {
         @Override
         public void run() {
@@ -559,7 +557,9 @@ public class LXEngine extends LXParameterized {
   }
 
   public void setRenderer(LXRenderer renderer) {
-    this.renderer = renderer;
+    dispatch(() -> {
+      this.renderer = renderer;
+    });
   }
 
   public LXRenderer getRenderer() {
@@ -592,6 +592,8 @@ public class LXEngine extends LXParameterized {
       for (LXLoopTask loopTask : this.loopTasks) {
         loopTask.loop(deltaMs);
       }
+
+      this.dispatchQueue.setForceAsync(true);
 
       // Mutate by speed for channels and effects
       deltaMs *= this.speed.getValue();
@@ -660,6 +662,8 @@ public class LXEngine extends LXParameterized {
       }
 
       this.timer.fxNanos = System.nanoTime() - fxStart;
+
+      this.dispatchQueue.setForceAsync(false);
 
       // Process UI input events
       if (this.inputDispatch == null) {
