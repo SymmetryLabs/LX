@@ -437,6 +437,9 @@ public class LXChannel extends LXComponent {
       nextPattern.onTransitionStart();
       this.transition.blend(activePattern.getColors(), nextPattern.getColors(), 0);
       this.transitionMillis = System.currentTimeMillis();
+      if (this.transition.getDuration() <= 0) {
+        finishTransition();
+      }
     }
   }
 
