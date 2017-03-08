@@ -222,6 +222,10 @@ public class LX {
     return this;
   }
 
+  public Minim getMinim() {
+    return this.minim;
+  }
+
   /**
    * Shut down resources of the LX instance.
    */
