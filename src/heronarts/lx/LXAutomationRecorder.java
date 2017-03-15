@@ -364,6 +364,11 @@ public class LXAutomationRecorder extends LXRunnable implements LXEngine.Message
         registerParameter(prefix + "/" + parameter.getLabel(), (LXListenableParameter) parameter);
       }
     }
+    for (LXParameter parameter : component.getNonKnobParameters()) {
+      if (parameter instanceof LXListenableParameter) {
+        registerParameter(prefix + "/" + parameter.getLabel(), (LXListenableParameter) parameter);
+      }
+    }
     return this;
   }
 

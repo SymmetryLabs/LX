@@ -27,6 +27,7 @@ import java.util.List;
 public abstract class LXParameterized implements LXParameterListener {
 
   protected final List<LXParameter> parameters = new ArrayList<LXParameter>();
+  protected final List<LXParameter> nonKnobParameters = new ArrayList<LXParameter>();
 
   public final LXParameterized addParameter(LXParameter parameter) {
     this.parameters.add(parameter);
@@ -54,6 +55,18 @@ public abstract class LXParameterized implements LXParameterListener {
       }
     }
     return null;
+  }
+
+  public final LXParameterized addNonKnobParameter(LXParameter parameter) {
+    this.nonKnobParameters.add(parameter);
+    if (parameter instanceof LXListenableParameter) {
+      ((LXListenableParameter) parameter).addListener(this);
+    }
+    return this;
+  }
+
+  public final List<LXParameter> getNonKnobParameters() {
+    return this.nonKnobParameters;
   }
 
   /**
