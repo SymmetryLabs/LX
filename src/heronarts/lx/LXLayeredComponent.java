@@ -30,24 +30,64 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Base class for system components that run in the engine, which have common
- * attributes, such as parameters, modulators, and layers. For instance,
- * patterns, transitions, and effects are all LXComponents.
+ * Base class for system components that have a color buffer and run in the
+ * engine, with common attributes such as parameters, modulators, and layers.
+ * For instance, patterns, transitions, and effects are all LXLayeredComponents.
+ * Subclasses do their work mainly by implementing onLoop() to write into the
+ * color buffer.
+ *
+ * LXLayeredComponents have a HybridBuffer, which manages a pair of 8-bit and
+ * 16-bit color buffers (see HybridBuffer for details).  Subclasses marked with
+ * LXLayeredComponent.Uses16 should internally write only to the 16-bit buffer
+ * (whose contents will be automatically converted to 8-bit colors as needed);
+ * subclasses not marked with Uses16 should write only to the 8-bit buffer
+ * (whose contents will be automatically converted to 16-bit colors as needed).
+ *
+ * LXLayeredComponent subclasses can be marked as LXLayeredComponent.Buffered
+ * (which means they own their own buffers), or not (which means they operate
+ * on external buffers passed in via setBuffer() or setBuffer16()).
+ *
+ * For subclasses marked Buffered:
+ *     Internal API:
+ *         The implementation of onLoop() should write colors into the
+ *         appropriate array (colors16 for a Uses16 class, or colors otherwise).
+ *     External API:
+ *         getBuffer() returns the 8-bit colors (converting from 16 bits if needed).
+ *         getBuffer16() returns the 16-bit colors (converting from 8 bits if needed).
+ *         setBuffer() and setBuffer16() are illegal to call.
+ *
+ * For subclasses not marked Buffered:
+ *     Internal API:
+ *         The implementation of onLoop() should read and write the contents
+ *         of the appropriate array (colors16 for a Uses16 class, colors otherwise).
+ *     External API:
+ *         getBuffer() and getBuffer16() are the same as above.
+ *         setBuffer() takes an 8-bit LXBuffer and makes it the place where
+ *             onLoop()'s results will appear (in a Uses16 class, its contents
+ *             will be converted to 16 bits before onLoop() and then back to
+ *             8 bits after; in a non-Uses16 class no conversion is needed).
+ *         setBuffer16() takes a 16-bit LXBuffer16 and makes it the place where
+ *             onLoop()'s results will appear (in a non-Uses16 class, its
+ *             contents will be converted to 8 bits before onLoop() and then
+ *             back to 16 bits after; in a Uses16 class no conversion is needed).
  */
 public abstract class LXLayeredComponent extends LXModelComponent implements LXLoopTask {
+  /** Marker interface for subclasses that operate on the 16-bit color buffer. */
+  public interface Uses16 {}
 
-  /**
-   * Marker interface for instances which own their own buffer.
-   */
+  /** Marker interface for subclasses that want to own their own buffers. */
   public interface Buffered {}
 
   public final Timer timer = constructTimer();
-
   protected final LX lx;
 
-  private LXBuffer buffer = null;
+  /** The hybrid buffer contains the 8-bit and 16-bit color buffers. */
+  private HybridBuffer hybridBuffer = null;
 
+  // colors and colors16 are aliases for the 8-bit and 16-bit color buffer arrays,
+  // for use in subclass implementations of onLoop() and run().
   protected int[] colors = null;
+  protected long[] colors16 = null;
 
   private final List<LXLayer> mutableLayers = new ArrayList<LXLayer>();
   protected final List<LXLayer> layers = Collections.unmodifiableList(mutableLayers);
@@ -55,64 +95,114 @@ public abstract class LXLayeredComponent extends LXModelComponent implements LXL
   protected final LXPalette palette;
 
   protected LXLayeredComponent(LX lx) {
-    this(lx, (LXBuffer) null);
+    super(lx);
+    this.lx = lx;
+    palette = lx.palette;
+    hybridBuffer = new HybridBuffer(lx);
+    resetArrayAliases();
   }
 
   protected LXLayeredComponent(LX lx, LXDeviceComponent component) {
-    this(lx, component.getBuffer());
+    this(lx);
+    setBuffer(component);
   }
 
-  protected LXLayeredComponent(LX lx, LXBuffer buffer) {
-    super(lx);
-    if (this instanceof Buffered) {
-      if (buffer != null) {
-        throw new IllegalArgumentException("Cannot pass existing buffer to LXLayeredComponent.Buffered, has its own");
-      }
-      buffer = new ModelBuffer(lx);
-    }
-    this.lx = lx;
-    this.palette = lx.palette;
-    if (buffer != null) {
-      this.buffer = buffer;
-      this.colors = buffer.getArray();
-    }
+  protected LXLayeredComponent(LX lx, LXBuffer externalIntBuffer) {
+    this(lx);
+    setBuffer(externalIntBuffer);
   }
 
+  protected LXLayeredComponent(LX lx, LXBuffer16 externalLongBuffer) {
+    this(lx);
+    setBuffer16(externalLongBuffer);
+  }
+
+  /** Gets the 8-bit color buffer (performing conversions if necessary). */
   protected LXBuffer getBuffer() {
-    return this.buffer;
+    return hybridBuffer.getBuffer();
   }
 
+  /** Gets the 16-bit color buffer (performing conversions if necessary). */
+  protected LXBuffer16 getBuffer16() {
+    return hybridBuffer.getBuffer16();
+  }
+
+  /** Gets the 8-bit color buffer's array (performing conversions if necessary). */
   public int[] getColors() {
-    return getBuffer().getArray();
+    return hybridBuffer.getBuffer().getArray();
   }
 
-  protected LXLayeredComponent setBuffer(LXDeviceComponent component) {
-    if (this instanceof Buffered) {
-      throw new UnsupportedOperationException("Cannot setBuffer on LXLayerdComponent.Buffered, owns its own buffer");
+  /** Gets the 16-bit color buffer's array (performing conversions if necessary). */
+  public long[] getColors16() {
+    return hybridBuffer.getBuffer16().getArray16();
+  }
+
+  /**
+   * Sets up the internal colors/colors16 fields as convenient aliases for the
+   * 8-bit/16-bit color buffer arrays, for use in subclass implementations of
+   * onLoop() and run().  Just one of colors/colors16 is set and the other is null.
+   */
+  protected void resetArrayAliases() {
+    colors = (this instanceof Uses16) ? null : getColors();
+    colors16 = (this instanceof Uses16) ? getColors16() : null;
+  }
+
+  /** Sets the buffer of another component as the buffer to read from and write to. */
+  protected LXLayeredComponent setBuffer(LXLayeredComponent component) {
+    if (component instanceof Uses16) {
+      setBuffer16(component.getBuffer16());
+    } else {
+      setBuffer(component.getBuffer());
     }
-    return setBuffer(component.getBuffer());
+    resetArrayAliases();
+    return this;
   }
 
-  protected LXLayeredComponent setBuffer(LXBuffer buffer) {
-    this.buffer = buffer;
-    this.colors = buffer.getArray();
+  /** Sets an external 8-bit color buffer as the buffer to read from and write to. */
+  protected LXLayeredComponent setBuffer(LXBuffer externalBuffer) {
+    assertNotBuffered();
+    hybridBuffer.setBuffer(externalBuffer);
+    hybridBuffer.setBuffer16(null);
+    resetArrayAliases();
     return this;
+  }
+
+  /** Sets an external 16-bit color buffer as the buffer to read from and write to. */
+  protected LXLayeredComponent setBuffer16(LXBuffer16 externalBuffer16) {
+    assertNotBuffered();
+    hybridBuffer.setBuffer16(externalBuffer16);
+    hybridBuffer.setBuffer(null);
+    resetArrayAliases();
+    return this;
+  }
+
+  protected void markBufferModified() {
+    if (this instanceof Uses16) {
+      hybridBuffer.markBuffer16Modified();
+    } else {
+      hybridBuffer.markBufferModified();
+    }
+  }
+
+  private void assertNotBuffered() {
+    if (this instanceof Buffered) {
+      throw new UnsupportedOperationException("Cannot set an external buffer in a Buffered LXLayeredComponent");
+    }
   }
 
   @Override
   public void loop(double deltaMs) {
     long loopStart = System.nanoTime();
 
-    // This protects against subclasses from inappropriately nuking the colors buffer
-    // reference. Even if a doofus assigns colors to something else, we'll reset it
-    // here on each pass of the loop. Better than subclasses having to call getColors()
-    // all the time.
-    this.colors = this.buffer.getArray();
+    // To ensure that colors/colors16 are set correctly even if a subclass
+    // happens to reassign them, we reset them here on every call to loop().
+    resetArrayAliases();
 
     super.loop(deltaMs);
     onLoop(deltaMs);
+
     for (LXLayer layer : this.mutableLayers) {
-      layer.setBuffer(this.buffer);
+      layer.setBuffer(this);
 
       // TODO(mcslee): is this best here or should it be in addLayer?
       layer.setModel(this.model);
@@ -121,12 +211,22 @@ public abstract class LXLayeredComponent extends LXModelComponent implements LXL
     }
     afterLayers(deltaMs);
 
+    if (!(this instanceof Buffered)) {
+      // The buffers are external; we need to make the output from onLoop() and
+      // afterLayers() visible in the external buffers, converting if needed.
+      hybridBuffer.sync();
+    }
+
     this.timer.loopNanos = System.nanoTime() - loopStart;
   }
 
-  protected /* abstract */ void onLoop(double deltaMs) {}
+  protected /* abstract */ void onLoop(double deltaMs) {
+      // Implementations should call markBufferModified() if they modify the color buffer.
+  }
 
-  protected /* abstract */ void afterLayers(double deltaMs) {}
+  protected /* abstract */ void afterLayers(double deltaMs) {
+      // Implementations should call markBufferModified() if they modify the color buffer.
+  }
 
   protected final LXLayer addLayer(LXLayer layer) {
     if (this.mutableLayers.contains(layer)) {
@@ -155,6 +255,29 @@ public abstract class LXLayeredComponent extends LXModelComponent implements LXL
     this.mutableLayers.clear();
     super.dispose();
   }
+
+  // NOTE(ping): Most of the utility routines below are rarely used, and rarely or never chained.
+  // We won't reimplement them all for 16-bit color, just setColor and setColors.
+
+  /** Sets the 16-bit color of a single point. */
+  protected void setColor16(int i, long c) {
+    colors16[i] = c;
+  }
+
+  /** Sets the 16-bit color of all points. */
+  protected void setColors16(int c) {
+    for (int i = 0; i < colors16.length; i++) {
+      colors16[i] = c;
+    }
+  }
+
+  /** Sets the 16-bit color of all points in a fixture. */
+  protected void setColor16(LXFixture f, long c) {
+    for (LXPoint p : f.getPoints()) {
+      colors16[p.index] = c;
+    }
+  }
+
 
   /**
    * Sets the color of point i

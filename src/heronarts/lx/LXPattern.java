@@ -193,6 +193,7 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
     long runStart = System.nanoTime();
     this.runMs += deltaMs;
     this.run(deltaMs);
+    markBufferModified();
     this.timer.runNanos = System.nanoTime() - runStart;
   }
 

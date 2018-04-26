@@ -32,8 +32,8 @@ public abstract class LXLayer extends LXLayeredComponent {
     super(lx);
   }
 
-  protected LXLayer(LX lx, LXDeviceComponent buffer) {
-    super(lx, buffer);
+  protected LXLayer(LX lx, LXDeviceComponent component) {
+    super(lx, component);
   }
 
   @Override
@@ -44,6 +44,7 @@ public abstract class LXLayer extends LXLayeredComponent {
   @Override
   protected final void onLoop(double deltaMs) {
     run(deltaMs);
+    markBufferModified();
   }
 
   /**
