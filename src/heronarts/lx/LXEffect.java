@@ -174,6 +174,7 @@ public abstract class LXEffect extends LXDeviceComponent implements LXComponent.
     double enabledDamped = this.enabledDamped.getValue();
     if (enabledDamped > 0) {
       run(deltaMs, enabledDamped);
+      markBufferModified();
     }
     this.timer.runNanos = System.nanoTime() - runStart;
   }
