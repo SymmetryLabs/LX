@@ -194,10 +194,8 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
 
   /**
    * Sets the color space in which this pattern is requested to operate.
-   * This is a request for the run() method to operate in a particular
-   * color space, for efficiency.  The run() method is not required to honor
-   * this request; this merely provides the information that using a
-   * different color space will necessitate an additional conversion.
+   * The run() method is free to use any space, though ignoring this
+   * request may sacrifice quality or efficiency.
    * @param space
    */
   public void setPreferredSpace(PolyBuffer.Space space) {
@@ -227,11 +225,10 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
    * write colors into an array obtained from the polyBuffer.
    *
    * @param deltaMs Number of milliseconds elapsed since last invocation
-   * @param preferredSpace A hint as to which color space to operate in for
-   *     the greatest efficiency (writing the pattern in a different color
-   *     space will still work, but will necessitate color space conversion)
+   * @param preferredSpace A hint as to which color space to use (the implementation
+   *     is free to use any space, though doing so may sacrifice quality or efficiency)
    */
-  protected void run(double deltaMs, PolyBuffer.Space preferredSpace) {
+  protected /* abstract */ void run(double deltaMs, PolyBuffer.Space preferredSpace) {
     // For compatibility, this invokes the method that previous subclasses
     // were supposed to implement.  Implementations of run(deltaMs) are
     // assumed to operate only on the "colors" array, and are not expected
