@@ -112,7 +112,7 @@ public class LXColor16 {
      * @param rgb Color value
      * @return Brightness from 0-100
      */
-    public static float b(int rgb) {
+    public static float b(long rgb) {
         int r = red(rgb);
         int g = green(rgb);
         int b = blue(rgb);
