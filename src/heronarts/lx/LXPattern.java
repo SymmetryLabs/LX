@@ -43,9 +43,6 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
   private int intervalEnd = -1;
   protected double runMs = 0;
 
-  /** The requested color space.  See setPreferredSpace(). */
-  protected PolyBuffer.Space preferredSpace = PolyBuffer.Space.RGB8;
-
   // An alias for the 8-bit color buffer array, for compatibility with old-style
   // implementations of run(deltaMs) that directly read from and write
   // into the "colors" array.  Newer subclasses should instead implement
@@ -190,16 +187,6 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
    */
   public final boolean isAutoCycleEligible() {
     return this.autoCycleEligible.isOn() && (!this.hasInterval() || this.isInInterval());
-  }
-
-  /**
-   * Sets the color space in which this pattern is requested to operate.
-   * The run() method is free to use any space, though ignoring this
-   * request may sacrifice quality or efficiency.
-   * @param space
-   */
-  public void setPreferredSpace(PolyBuffer.Space space) {
-    preferredSpace = space;
   }
 
   @Override

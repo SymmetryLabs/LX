@@ -178,7 +178,7 @@ public abstract class LXEffect extends LXDeviceComponent implements LXComponent.
   public final void onLoop(double deltaMs) {
     long runStart = System.nanoTime();
     if (enabledDamped.getValue() > 0) {
-      run(deltaMs, enabledDamped.getValue(), polyBuffer.getFreshSpace());
+      run(deltaMs, enabledDamped.getValue(), preferredSpace);
     }
     this.timer.runNanos = System.nanoTime() - runStart;
   }
