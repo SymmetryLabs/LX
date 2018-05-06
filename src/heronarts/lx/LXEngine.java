@@ -154,7 +154,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
 
   /** The color space that the engine renders to. */
   public final EnumParameter<PolyBuffer.Space> colorSpace =
-      new EnumParameter<>("Color Space", RGB8)
+      new EnumParameter<>("Color Space", RGB16)
           .setDescription("Selects the color space for the engine");
 
   private final BooleanParameter[] scenes = new BooleanParameter[MAX_SCENES];
@@ -1162,6 +1162,15 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
     }
   }
 
+  double cielum(double y) {
+    final double DELTA = 6 / 29.0;
+    double t = (y + 0.16) / 1.16;
+    if (t > DELTA) {
+      return t * t * t;
+    }
+    return 3 * DELTA * DELTA * (t - 4 / 29.0);
+  }
+
   void blendChannels(double deltaMs, long channelStart, PolyBuffer.Space space) {
     groupA.reset();
     groupB.reset();
@@ -1171,7 +1180,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
 
     for (LXChannel channel : mutableChannels) {
       long blendStart = System.nanoTime();
-      double alpha = channel.fader.getValue();
+      double alpha = cielum(channel.fader.getValue());
 
       if (channel.enabled.isOn() && alpha > 0) {
         LXChannel.CrossfadeGroup group = channel.crossfadeGroup.getEnum();
