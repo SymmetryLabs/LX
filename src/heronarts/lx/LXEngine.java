@@ -65,6 +65,10 @@ import java.util.Queue;
 
 import static heronarts.lx.LXChannel.CrossfadeGroup.A;
 import static heronarts.lx.LXChannel.CrossfadeGroup.B;
+<<<<<<< HEAD
+=======
+import static heronarts.lx.PolyBuffer.Space.RGB16;
+>>>>>>> ping/16
 import static heronarts.lx.PolyBuffer.Space.RGB8;
 
 /**
@@ -1180,7 +1184,11 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
 
     for (LXChannel channel : mutableChannels) {
       long blendStart = System.nanoTime();
+<<<<<<< HEAD
       double alpha = cielum(channel.fader.getValue());
+=======
+      double alpha = LXUtils.cie_lightness_to_luminance(channel.fader.getValue());
+>>>>>>> ping/16
 
       if (channel.enabled.isOn() && alpha > 0) {
         LXChannel.CrossfadeGroup group = channel.crossfadeGroup.getEnum();
