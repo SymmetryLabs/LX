@@ -154,7 +154,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
 
   /** The color space that the engine renders to. */
   public final EnumParameter<PolyBuffer.Space> colorSpace =
-      new EnumParameter<>("Color Space", RGB16)
+      new EnumParameter<>("Color Space", PolyBuffer.Space.RGB16)
           .setDescription("Selects the color space for the engine");
 
   private final BooleanParameter[] scenes = new BooleanParameter[MAX_SCENES];

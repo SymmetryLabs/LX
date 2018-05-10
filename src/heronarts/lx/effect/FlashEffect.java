@@ -23,6 +23,9 @@ package heronarts.lx.effect;
 import heronarts.lx.LX;
 import heronarts.lx.LXEffect;
 import heronarts.lx.color.LXColor;
+import heronarts.lx.color.LXColor16;
+import heronarts.lx.PolyBuffer;
+
 import heronarts.lx.parameter.BoundedParameter;
 import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXParameter;
@@ -63,14 +66,25 @@ public class FlashEffect extends LXEffect {
   }
 
   @Override
-  protected void run(double deltaMs, double amount) {
+  protected void run(double deltaMs, double amount, PolyBuffer.Space space) {
     float flashValue = (float) (amount * this.intensity.getValuef());
     double satValue = this.sat.getValue() * 100.;
     double hueValue = this.lx.palette.getHue();
     if (flashValue > 0) {
-      for (int i = 0; i < this.colors.length; ++i) {
-        this.colors[i] = LXColor.lerp(this.colors[i], LXColor.hsb(hueValue, satValue, 100.), flashValue);
+      if (space == PolyBuffer.Space.RGB8) {
+        int[] intColors = (int[]) getArray(space);
+        for (int i = 0; i < intColors.length; ++i) {
+          intColors[i] = LXColor.lerp(intColors[i], LXColor.hsb(hueValue, satValue, 100.), flashValue);
+        }
+      } else if (space == PolyBuffer.Space.RGB16) {
+        long[] longColors = (long[]) getArray(space);
+
+        for (int i = 0; i < longColors.length; ++i) {
+          longColors[i] = LXColor16.lerp(longColors[i], LXColor16.hsb(hueValue, satValue, 100.), flashValue);
+        }
+
       }
     }
+
   }
 }

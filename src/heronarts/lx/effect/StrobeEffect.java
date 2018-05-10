@@ -23,8 +23,10 @@ package heronarts.lx.effect;
 import heronarts.lx.LX;
 import heronarts.lx.LXEffect;
 import heronarts.lx.LXUtils;
+import heronarts.lx.PolyBuffer;
 import heronarts.lx.blend.MultiplyBlend;
 import heronarts.lx.color.LXColor;
+import heronarts.lx.color.LXColor16;
 import heronarts.lx.modulator.LXWaveshape;
 import heronarts.lx.modulator.SawLFO;
 import heronarts.lx.parameter.CompoundParameter;
@@ -86,18 +88,40 @@ public class StrobeEffect extends LXEffect {
   }
 
   @Override
-  public void run(double deltaMs, double amount) {
+  public void run(double deltaMs, double amount, PolyBuffer.Space space) {
+
     float amt = this.enabledDamped.getValuef() * this.depth.getValuef();
     if (amt > 0) {
       float strobef = this.basis.getValuef();
       strobef = (float) getWaveshape().compute(strobef);
       strobef = LXUtils.lerpf(1, strobef, amt);
       if (strobef < 1) {
-        if (strobef == 0) {
-          setColors(LXColor.BLACK);
-        } else {
-          int src = LXColor.gray(100 * strobef);
-          MultiplyBlend.multiply(this.colors, src, 1, this.colors);
+        if (space == PolyBuffer.Space.RGB8) {
+          int[] intColors = (int[]) getArray(space);
+
+          if (strobef == 0) {
+            for (int i = 0; i < intColors.length; ++i) {
+              intColors[i] = LXColor.BLACK;
+            }
+            // setColors(LXColor.BLACK);
+          } else {
+            int src = LXColor.gray(100 * strobef);
+            MultiplyBlend.multiply(intColors, src, 1, intColors);
+          }
+        }
+        if (space == PolyBuffer.Space.RGB16) {
+          //long longColorsObj = getArray(space);
+          long[] longColors = (long[]) getArray(space);
+
+          if (strobef == 0) {
+            for (int i = 0; i < longColors.length; ++i) {
+              longColors[i] = LXColor16.BLACK;
+            }
+            //setColors(space, LXColor16.BLACK);
+          } else {
+            long src = LXColor16.gray(100 * strobef);
+            //MultiplyBlend.multiply16(longColors, src, 1, longColors);
+          }
         }
       }
     }
