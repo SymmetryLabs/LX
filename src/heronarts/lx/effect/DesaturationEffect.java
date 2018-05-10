@@ -22,7 +22,10 @@ package heronarts.lx.effect;
 
 import heronarts.lx.LX;
 import heronarts.lx.LXEffect;
+import heronarts.lx.PolyBuffer;
 import heronarts.lx.color.LXColor;
+import heronarts.lx.color.LXColor16;
+
 import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXParameter;
 
@@ -58,16 +61,33 @@ public class DesaturationEffect extends LXEffect {
   }
 
   @Override
-  protected void run(double deltaMs, double amount) {
+  protected void run(double deltaMs, double amount, PolyBuffer.Space space) {
     double d = amount * this.amount.getValue();
     if (d > 0) {
       d = 1-d;
-      for (int i = 0; i < colors.length; ++i) {
-        this.colors[i] = LXColor.hsb(
-          LXColor.h(this.colors[i]),
-          Math.max(0, LXColor.s(colors[i]) * d),
-          LXColor.b(colors[i])
+      if (space == PolyBuffer.Space.RGB8) {
+
+        int[] intColors = (int[]) getArray(space);
+
+        for (int i = 0; i < intColors.length; ++i) {
+          intColors[i] = LXColor.hsb(
+            LXColor.h(intColors[i]),
+            Math.max(0, LXColor.s(intColors[i]) * d),
+            LXColor.b(intColors[i])
         );
+      }
+      }
+      if (space == PolyBuffer.Space.RGB16) {
+
+        long[] longColors = (long[]) getArray(space);
+
+        for (int i = 0; i < longColors.length; ++i) {
+          longColors[i] = LXColor16.hsb(
+            LXColor16.h(longColors[i]),
+            Math.max(0, LXColor16.s(longColors[i]) * d),
+            LXColor16.b(longColors[i])
+          );
+        }
       }
     }
   }
