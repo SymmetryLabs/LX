@@ -22,11 +22,12 @@ package heronarts.lx.effect;
 
 import heronarts.lx.LX;
 import heronarts.lx.LXEffect;
-import heronarts.lx.ModelBuffer;
 import heronarts.lx.blend.NormalBlend;
 import heronarts.lx.blend.ScreenBlend;
 import heronarts.lx.color.LXColor;
+import heronarts.lx.color.LXColor16;
 import heronarts.lx.parameter.CompoundParameter;
+import heronarts.lx.PolyBuffer;
 
 public class BlurEffect extends LXEffect {
 
@@ -34,42 +35,59 @@ public class BlurEffect extends LXEffect {
     new CompoundParameter("Amount", 0)
     .setDescription("Sets the amount of blur to apply");
 
-  private final ModelBuffer blurBuffer;
+  private final PolyBuffer blurBuffer;
 
   public BlurEffect(LX lx) {
     super(lx);
-    this.blurBuffer = new ModelBuffer(lx);
-    int[] blurArray = blurBuffer.getArray();
-    for (int i = 0; i < blurArray.length; ++i) {
-      blurArray[i] = LXColor.BLACK;
-    }
+    this.blurBuffer = new PolyBuffer(lx);
+    resetBuffers();
     addParameter("amount", this.amount);
+  }
+
+  private void resetBuffers() {
+    int[] intArray = (int[]) blurBuffer.getArray(PolyBuffer.Space.RGB8);
+    for (int i = 0; i < intArray.length; ++i) {
+      intArray[i] = LXColor.BLACK;
+    }
+
+    long[] longArray = (long[]) blurBuffer.getArray(PolyBuffer.Space.RGB16);
+    for (int i = 0; i < longArray.length; ++i) {
+      longArray[i] = LXColor16.BLACK;
+    }
   }
 
   @Override
   protected void onEnable() {
-    int[] blurArray = this.blurBuffer.getArray();
-    for (int i = 0; i < blurArray.length; ++i) {
-      blurArray[i] = LXColor.BLACK;
-    }
+    resetBuffers();
   }
 
   @Override
-  public void run(double deltaMs, double amount) {
-    float blurf = (float) (amount * this.amount.getValuef());
+  public void run(double deltaMs, double enabledAmount, PolyBuffer.Space space) {
+    float blurf = (float) (enabledAmount * this.amount.getValuef());
     if (blurf > 0) {
       blurf = 1 - (1 - blurf) * (1 - blurf) * (1 - blurf);
-      int[] blurArray = this.blurBuffer.getArray();
 
-      // Screen blend the colors onto the blur array
-      ScreenBlend.screen(blurArray, this.colors, 1, blurArray);
+      if (space == PolyBuffer.Space.RGB8) {
+        int[] intColors = (int[]) getArray(space);
+        int[] intBlurArray = (int[]) blurBuffer.getArray(space);
 
-      // Lerp onto the colors based upon amount
-      NormalBlend.lerp(this.colors, blurArray, blurf, this.colors);
+        // Screen blend the colors onto the blur array
+        ScreenBlend.screen(intBlurArray, intColors, 1, intBlurArray);
+  
+        // Lerp onto the colors based upon amount
+        NormalBlend.lerp(intColors, intBlurArray, blurf, intColors);
+  
+        // Copy colors into blur array for next frame
+        System.arraycopy(intColors, 0, intBlurArray, 0, intColors.length);
+      }
+      else if (space == PolyBuffer.Space.RGB16) {
+        long[] longColors = (long[]) getArray(space);
+        long[] longBlurArray = (long[]) blurBuffer.getArray(space);
 
-      // Copy colors into blur array for next frame
-      System.arraycopy(this.colors, 0, blurArray, 0, this.colors.length);
+        ScreenBlend.screen16(longBlurArray, longColors, 1, longBlurArray);
+        NormalBlend.lerp16(longColors, longBlurArray, blurf, longColors);
+        System.arraycopy(longColors, 0, longBlurArray, 0, longColors.length);
+      }
     }
-
   }
 }
