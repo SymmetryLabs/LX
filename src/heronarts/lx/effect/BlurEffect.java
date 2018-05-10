@@ -68,26 +68,27 @@ public class BlurEffect extends LXEffect {
       blurf = 1 - (1 - blurf) * (1 - blurf) * (1 - blurf);
 
       if (space == PolyBuffer.Space.RGB8) {
-        int[] intColors = (int[]) getArray(space);
+        int[] intArray = (int[]) getArray(space);
         int[] intBlurArray = (int[]) blurBuffer.getArray(space);
 
         // Screen blend the colors onto the blur array
-        ScreenBlend.screen(intBlurArray, intColors, 1, intBlurArray);
+        ScreenBlend.screen(intBlurArray, intArray, 1, intBlurArray);
   
         // Lerp onto the colors based upon amount
-        NormalBlend.lerp(intColors, intBlurArray, blurf, intColors);
+        NormalBlend.lerp(intArray, intBlurArray, blurf, intArray);
   
         // Copy colors into blur array for next frame
-        System.arraycopy(intColors, 0, intBlurArray, 0, intColors.length);
+        System.arraycopy(intArray, 0, intBlurArray, 0, intArray.length);
       }
       else if (space == PolyBuffer.Space.RGB16) {
-        long[] longColors = (long[]) getArray(space);
+        long[] longArray = (long[]) getArray(space);
         long[] longBlurArray = (long[]) blurBuffer.getArray(space);
 
-        ScreenBlend.screen16(longBlurArray, longColors, 1, longBlurArray);
-        NormalBlend.lerp16(longColors, longBlurArray, blurf, longColors);
-        System.arraycopy(longColors, 0, longBlurArray, 0, longColors.length);
+        ScreenBlend.screen16(longBlurArray, longArray, 1, longBlurArray);
+        NormalBlend.lerp16(longArray, longBlurArray, blurf, longArray);
+        System.arraycopy(longArray, 0, longBlurArray, 0, longArray.length);
       }
     }
+    markModified(space);
   }
 }
