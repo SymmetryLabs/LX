@@ -93,7 +93,9 @@ public abstract class LXEffect extends LXDeviceComponent implements LXComponent.
   public String getOscAddress() {
     LXBus bus = getBus();
     if (bus != null) {
-      return bus.getOscAddress() + "/effect/" + (this.index+1);
+      // change osc route effect from index to label
+      // return bus.getOscAddress() + "/effect/" + (this.index+1);
+      return bus.getOscAddress() + "/effect/" + (this.label);
     }
     return null;
   }
