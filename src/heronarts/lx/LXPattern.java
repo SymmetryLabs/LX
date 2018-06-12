@@ -72,7 +72,7 @@ public abstract class LXPattern extends LXDeviceComponent implements LXComponent
     LXChannel channel = getChannel();
     if (channel != null) {
       // return channel.getOscAddress() + "/pattern/" + (this.index + 1);
-      return channel.getOscAddress() + "/pattern/" + this.label
+      return channel.getOscAddress() + "/pattern/" + this.label.toString();
     }
     return null;
   }
