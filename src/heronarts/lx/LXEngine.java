@@ -514,6 +514,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
     addParameter("multithreaded", this.isMultithreaded);
     addParameter("channelMultithreaded", this.isChannelMultithreaded);
     addParameter("networkMultithreaded", this.isNetworkMultithreaded);
+    // addParameter("effect", this.effect);
   }
 
   public void logTimers() {
