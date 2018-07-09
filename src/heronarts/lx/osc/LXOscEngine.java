@@ -35,6 +35,7 @@ import java.util.List;
 import javax.sound.midi.InvalidMidiDataException;
 import heronarts.lx.LX;
 import heronarts.lx.LXBus;
+//import heronarts.lx.LXChannelBus;
 import heronarts.lx.LXChannel;
 import heronarts.lx.LXComponent;
 import heronarts.lx.LXEffect;
@@ -357,27 +358,53 @@ public class LXOscEngine extends LXComponent {
         registerComponent(modulator);
       }
       lx.engine.modulation.addListener(this);
-      registerComponent(lx.engine.masterChannel);
+      //registerComponent(lx.engine.masterChannel);
+      registerChannel(lx.engine.masterChannel);
       for (LXChannel channel : lx.engine.getChannels()) {
         registerChannel(channel);
       }
       lx.engine.addListener(this);
     }
 
-    private void registerChannel(LXChannel channel) {
+    private void registerChannel(LXBus channel) { //lxchannel channel
       registerComponent(channel);
-      for (LXPattern p : channel.patterns) {
-        registerComponent(p);
+      if (channel instanceof LXChannel) {
+           for (LXPattern p : ((LXChannel)channel).patterns) {
+          registerComponent(p);
+        }
       }
+      for (LXEffect effect : channel.effects) {
+        System.out.println("effect registered!");
+        System.out.println(effect);
+        registerComponent(effect);  
+      }
+      if (channel instanceof LXChannel) {
+        ((LXChannel) channel).addListener(this);
+
+      } else {
       channel.addListener(this);
+    }
     }
 
     private void unregisterChannel(LXChannel channel) {
-      unregisterComponent(channel);
-      for (LXPattern p : channel.patterns) {
-        unregisterComponent(p);
+          unregisterComponent(channel);
+      if (channel instanceof LXChannel) {
+          for (LXPattern p : ((LXChannel)channel).patterns) {
+          unregisterComponent(p);
+        }
       }
-      channel.removeListener(this);
+      for (LXEffect effect : channel.effects) {
+        unregisterComponent(effect);
+      }
+      // Ensure listener is registered at most specific type
+      if (channel instanceof LXChannel) {
+        ((LXChannel) channel).removeListener(this);
+      } //else if (channel instanceof LXChannelBus) {
+       // ((LXChannelBus) channel).removeListener(this);
+      //}
+      else {
+        channel.removeListener(this);
+      }
     }
 
     private void registerComponent(LXComponent component) {
@@ -415,7 +442,7 @@ public class LXOscEngine extends LXComponent {
             oscInt.setValue(((BooleanParameter) parameter).isOn() ? 1 : 0);
             oscMessage.add(oscInt);
           } else if (parameter instanceof StringParameter) {
-            oscString.setValue(((StringParameter) parameter).getString());
+            oscString.setValue(((StringParameter) parameter).getLabel()); // getString
             oscMessage.add(oscString);
           } else if (parameter instanceof ColorParameter) {
             oscInt.setValue(((ColorParameter) parameter).getColor());
@@ -435,6 +462,13 @@ public class LXOscEngine extends LXComponent {
       }
     }
 
+    private void sendMessage(String address, String value) {
+      oscMessage.clearArguments();
+      oscMessage.setAddressPattern(address);
+      oscString.setValue(value);
+      oscMessage.add(oscString);
+      sendMessage(oscMessage);
+    }
     private void sendMessage(String address, int value) {
       oscMessage.clearArguments();
       oscMessage.setAddressPattern(address);
@@ -502,7 +536,7 @@ public class LXOscEngine extends LXComponent {
 
     @Override
     public void patternDidChange(LXChannel channel, LXPattern pattern) {
-      sendMessage(channel.getOscAddress() + "/" + ROUTE_ACTIVE_PATTERN, pattern.getIndex());
+      sendMessage(channel.getOscAddress() + "/" + ROUTE_ACTIVE_PATTERN, pattern.getLabel());
       sendMessage(channel.getOscAddress() + "/" + ROUTE_NEXT_PATTERN, -1);
     }
 
