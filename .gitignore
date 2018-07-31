@@ -5,3 +5,6 @@
 /examples/LXHeadless/bin
 .idea
 *.iml
+*.swp
+/build
+.gradle
