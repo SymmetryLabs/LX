@@ -46,4 +46,7 @@ public abstract class LXAbstractMidiListener implements LXMidiListener {
   public void aftertouchReceived(MidiAftertouch aftertouch) {
   }
 
+  @Override
+  public void beatReceived(MidiBeat beat) {
+  }
 }

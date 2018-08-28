@@ -21,6 +21,7 @@
 package heronarts.lx;
 
 import heronarts.lx.midi.MidiAftertouch;
+import heronarts.lx.midi.MidiBeat;
 import heronarts.lx.midi.MidiControlChange;
 import heronarts.lx.midi.LXMidiListener;
 import heronarts.lx.midi.MidiNote;
@@ -230,6 +231,11 @@ public abstract class LXEffect extends LXBusComponent implements LXComponent.Ren
 
   @Override
   public void aftertouchReceived(MidiAftertouch aftertouch) {
+
+  }
+
+  @Override
+  public void beatReceived(MidiBeat beat) {
 
   }
 

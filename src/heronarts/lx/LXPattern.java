@@ -21,6 +21,7 @@
 package heronarts.lx;
 
 import heronarts.lx.midi.MidiAftertouch;
+import heronarts.lx.midi.MidiBeat;
 import heronarts.lx.midi.MidiControlChange;
 
 import com.google.gson.JsonObject;
@@ -310,6 +311,11 @@ public abstract class LXPattern extends LXBusComponent implements LXComponent.Re
 
   @Override
   public void aftertouchReceived(MidiAftertouch aftertouch) {
+
+  }
+
+  @Override
+  public void beatReceived(MidiBeat beat) {
 
   }
 

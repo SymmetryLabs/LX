@@ -34,4 +34,5 @@ public interface LXMidiListener {
 
   public void aftertouchReceived(MidiAftertouch aftertouch);
 
+  public void beatReceived(MidiBeat beat);
 }

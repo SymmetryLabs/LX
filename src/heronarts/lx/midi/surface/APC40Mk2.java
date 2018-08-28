@@ -35,6 +35,7 @@ import heronarts.lx.midi.LXMidiInput;
 import heronarts.lx.midi.LXMidiOutput;
 import heronarts.lx.midi.LXShortMessage;
 import heronarts.lx.midi.MidiAftertouch;
+import heronarts.lx.midi.MidiBeat;
 import heronarts.lx.midi.MidiControlChange;
 import heronarts.lx.midi.MidiNote;
 import heronarts.lx.midi.MidiNoteOn;
@@ -901,6 +902,10 @@ public class APC40Mk2 extends LXMidiSurface {
 
   @Override
   public void aftertouchReceived(MidiAftertouch aftertouch) {
+  }
+
+  @Override
+  public void beatReceived(MidiBeat beat) {
   }
 
 }

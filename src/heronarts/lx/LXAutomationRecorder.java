@@ -21,6 +21,7 @@
 package heronarts.lx;
 
 import heronarts.lx.midi.MidiAftertouch;
+import heronarts.lx.midi.MidiBeat;
 import heronarts.lx.midi.MidiControlChange;
 import heronarts.lx.midi.LXMidiListener;
 import heronarts.lx.midi.MidiNote;
@@ -438,6 +439,11 @@ public class LXAutomationRecorder extends LXRunnableComponent implements LXEngin
   @Override
   public void aftertouchReceived(MidiAftertouch aftertouch) {
     midiEventReceived(aftertouch);
+  }
+
+  @Override
+  public void beatReceived(MidiBeat beat) {
+    midiEventReceived(beat);
   }
 
   @Override

@@ -25,6 +25,7 @@ import heronarts.lx.midi.LXMidiInput;
 import heronarts.lx.midi.LXMidiListener;
 import heronarts.lx.midi.LXMidiOutput;
 import heronarts.lx.midi.MidiAftertouch;
+import heronarts.lx.midi.MidiBeat;
 import heronarts.lx.midi.MidiControlChange;
 import heronarts.lx.midi.MidiNote;
 import heronarts.lx.midi.MidiNoteOn;
@@ -743,6 +744,15 @@ public class LXMidiRemote implements LXMidiListener {
     aftertouch(aftertouch);
   }
 
+  @Override
+  public void beatReceived(MidiBeat beat) {
+    if (this.logEvents) {
+      System.out.println(this.input.getName() + ":beat:"
+                         + beat.getChannel() + ":" + beat.getBeat());
+    }
+    beat(beat);
+  }
+
 
   protected void noteOn(MidiNoteOn note) {
   }
@@ -762,4 +772,6 @@ public class LXMidiRemote implements LXMidiListener {
   protected void aftertouch(MidiAftertouch aftertouch) {
   }
 
+  protected void beat(MidiBeat beat) {
+  }
 }
