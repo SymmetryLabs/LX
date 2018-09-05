@@ -666,6 +666,14 @@ public class LXOscEngine extends LXComponent {
       this.socket.close();
       this.listeners.clear();
     }
+
+    public void stopJoin() {
+      stop();
+      try {
+        this.thread.join();
+      } catch (InterruptedException e) {
+      }
+    }
   }
 
   @Override
@@ -700,22 +708,38 @@ public class LXOscEngine extends LXComponent {
 
   private void startReceiver() {
     if (this.engineReceiver != null) {
-      stopReceiver();
+      stopJoinReceiver();
     }
-    try {
-      this.engineReceiver = receiver(this.receivePort.getValuei(), this.receiveHost.getString());
-      this.engineReceiver.addListener(this.engineListener);
-      System.out.println("Started OSC listener " + this.engineReceiver.address);
-    } catch (SocketException sx) {
-      System.err.println("Failed to start OSC receiver: " + sx.getLocalizedMessage());
-    } catch (UnknownHostException uhx) {
-      System.err.println("Bad OSC receive host: " + uhx.getLocalizedMessage());
+    for (int attempt = 0; attempt < 5; attempt++) {
+      try {
+        this.engineReceiver = receiver(this.receivePort.getValuei(), this.receiveHost.getString());
+        this.engineReceiver.addListener(this.engineListener);
+        System.out.println("Started OSC listener " + this.engineReceiver.address);
+        break;
+      } catch (SocketException sx) {
+        System.err.println("Failed to start OSC receiver: " + sx.getLocalizedMessage());
+      } catch (UnknownHostException uhx) {
+        System.err.println("Bad OSC receive host: " + uhx.getLocalizedMessage());
+        break;
+      }
+      int waitTime = 1000 * (int) Math.pow(2, attempt);
+      System.err.println(String.format("Retrying OSC in %d ms", waitTime));
+      try {
+        Thread.sleep(waitTime);
+      } catch (InterruptedException e) {}
     }
   }
 
   private void stopReceiver() {
     if (this.engineReceiver != null) {
       this.engineReceiver.stop();
+      this.engineReceiver = null;
+    }
+  }
+
+  private void stopJoinReceiver() {
+    if (this.engineReceiver != null) {
+      this.engineReceiver.stopJoin();
       this.engineReceiver = null;
     }
   }
