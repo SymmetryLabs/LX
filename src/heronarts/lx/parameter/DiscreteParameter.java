@@ -20,6 +20,9 @@
 
 package heronarts.lx.parameter;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+
 /**
  * Parameter type with a discrete set of possible integer values.
  */
@@ -240,4 +243,31 @@ public class DiscreteParameter extends LXListenableNormalizedParameter {
     return this;
   }
 
+  public void load(JsonPrimitive elem) {
+    if (elem.isString()) {
+      if (options == null) {
+        throw new IllegalArgumentException("stored value is a string, but " + getLabel() + "doesn't have options");
+      }
+      String str = elem.getAsString();
+      for (int i = 0; i < options.length; i++) {
+        if (options[i].equals(str)) {
+          setValue(i);
+          return;
+        }
+      }
+      throw new IllegalArgumentException("stored value " + str + "is not an option for parameter " + getLabel());
+    } else if (elem.isNumber()) {
+      setValue(elem.getAsInt());
+      return;
+    }
+    throw new IllegalArgumentException("incorrect value type for " + getLabel());
+  }
+
+  public JsonPrimitive store() {
+    if (options != null) {
+      return new JsonPrimitive(getOption());
+    } else {
+      return new JsonPrimitive(getValuei());
+    }
+  }
 }

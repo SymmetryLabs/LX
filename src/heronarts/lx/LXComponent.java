@@ -340,7 +340,7 @@ public abstract class LXComponent implements LXParameterListener, LXSerializable
       } else if (parameter instanceof BooleanParameter) {
         parameters.addProperty(path, ((BooleanParameter) parameter).isOn());
       } else if (parameter instanceof DiscreteParameter) {
-        parameters.addProperty(path, ((DiscreteParameter) parameter).getValuei());
+        parameters.add(path, ((DiscreteParameter) parameter).store());
       } else if (parameter instanceof ColorParameter) {
         parameters.addProperty(path, ((ColorParameter) parameter).getColor());
       } else if (parameter instanceof CompoundParameter) {
@@ -381,7 +381,7 @@ public abstract class LXComponent implements LXParameterListener, LXSerializable
           } else if (parameter instanceof BooleanParameter) {
             ((BooleanParameter)parameter).setValue(value.getAsBoolean());
           } else if (parameter instanceof DiscreteParameter) {
-            parameter.setValue(value.getAsInt());
+            ((DiscreteParameter)parameter).load(value.getAsJsonPrimitive());
           } else if (parameter instanceof ColorParameter) {
             ((ColorParameter)parameter).setColor(value.getAsInt());
           } else if (parameter instanceof CompoundParameter) {
