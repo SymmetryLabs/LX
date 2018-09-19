@@ -108,7 +108,8 @@ public class Ops16 {
    * Returns a color given hue, saturation, brightness, and alpha.
    */
   public static long hsba(double hue, double saturation, double brightness, double alpha) {
-    hue = hue * 360;
+    // hue is passed in as 0-1, calculation expects 0-360
+    hue *= 360;
 
     int r = 0, g = 0, b = 0;
     if (saturation == 0) {
