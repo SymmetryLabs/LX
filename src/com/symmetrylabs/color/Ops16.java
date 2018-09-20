@@ -154,7 +154,7 @@ public class Ops16 {
       }
     }
 
-    return rgba(r, g, b, alpha);
+    return rgba(r, g, b, (int)(alpha * MAX));
   }
 
   /** Multiplies the R, G, and B components by a factor from 0.0 to 1.0. */
