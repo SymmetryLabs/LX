@@ -154,7 +154,7 @@ public class Ops8 {
       }
     }
 
-    return rgba(r, g, b, a);
+    return rgba(r, g, b, alpha);
   }
 
   /** Multiplies the R, G, and B components by a fraction from 0.0 to 1.0. */
