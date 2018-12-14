@@ -20,10 +20,12 @@
 
 package heronarts.lx.parameter;
 
+import heronarts.lx.LXLayer;
+
 /**
  * Parameter type with a discrete set of possible integer values.
  */
-public class DiscreteParameter extends LXListenableNormalizedParameter {
+public class DiscreteParameter extends LXListenableNormalizedParameter implements LXListenableParameter.Formatter {
 
   private int minValue;
 
@@ -64,6 +66,7 @@ public class DiscreteParameter extends LXListenableNormalizedParameter {
    */
   public DiscreteParameter(String label, int value, int min, int max) {
     super(label, value);
+    setFormatter(this);
     setRange(min, max);
   }
 
@@ -133,6 +136,10 @@ public class DiscreteParameter extends LXListenableNormalizedParameter {
    */
   public String getOption() {
     return (this.options != null) ? this.options[getValuei()] : Integer.toString(getValuei());
+  }
+
+  @Override public String format(double value) {
+    return getOption();
   }
 
   /**
@@ -239,5 +246,4 @@ public class DiscreteParameter extends LXListenableNormalizedParameter {
     setValue(this.minValue + value);
     return this;
   }
-
 }

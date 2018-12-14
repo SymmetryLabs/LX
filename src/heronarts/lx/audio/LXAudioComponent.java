@@ -37,7 +37,7 @@ import heronarts.lx.LXComponent;
 public class LXAudioComponent extends LXComponent {
 
   protected static final int SAMPLE_RATE = 44100;
-  protected static final int SAMPLE_BUFFER_SIZE = 512;
+  protected static final int SAMPLE_BUFFER_SIZE = 2048;
 
   protected static final int BYTES_PER_SAMPLE = 2;
   protected static final int BITS_PER_SAMPLE = BYTES_PER_SAMPLE * Byte.SIZE;

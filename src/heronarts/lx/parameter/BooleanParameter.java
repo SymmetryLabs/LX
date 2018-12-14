@@ -23,7 +23,7 @@ package heronarts.lx.parameter;
 /**
  * A simple parameter that has a binary value of off or on
  */
-public class BooleanParameter extends LXListenableNormalizedParameter {
+public class BooleanParameter extends LXListenableNormalizedParameter implements LXListenableParameter.Formatter {
 
   public enum Mode {
     TOGGLE,
@@ -72,6 +72,10 @@ public class BooleanParameter extends LXListenableNormalizedParameter {
     return this;
   }
 
+  @Override public String format(double value) {
+    return (value > 0) ? "ON" : "OFF";
+  }
+
   @Override
   protected double updateValue(double value) {
     return (value > 0) ? 1. : 0.;
@@ -89,5 +93,4 @@ public class BooleanParameter extends LXListenableNormalizedParameter {
     setValue(normalized >= 0.5);
     return this;
   }
-
 }
