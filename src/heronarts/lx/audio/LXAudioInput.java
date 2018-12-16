@@ -170,8 +170,8 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
   public void onParameterChanged(LXParameter p) {
     super.onParameterChanged(p);
     if (p == this.device) {
-      close();
-      if (this.lx.engine.audio.enabled.isOn()) {
+      if (isOpen()) {
+        close();
         open();
       }
     }
@@ -185,7 +185,7 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
     return this.line != null;
   }
 
-  void open() {
+  public void open() {
     if (this.line == null) {
       Device device = this.device.getObject();
       if (!device.isAvailable()) {
@@ -219,7 +219,7 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
     }
   }
 
-  void start() {
+  public void start() {
     if (this.line == null) {
       throw new IllegalStateException("Cannot start() LXAudioInput before open()");
     }
@@ -230,7 +230,7 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
     }
   }
 
-  void stop() {
+  public void stop() {
     if (this.line == null) {
       throw new IllegalStateException("Cannot stop() LXAudioInput before open()");
     }
@@ -238,7 +238,7 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
     this.line.stop();
   }
 
-  void close() {
+  public void close() {
     if (this.line != null) {
       this.line.flush();
       stop();
