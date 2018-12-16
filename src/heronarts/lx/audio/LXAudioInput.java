@@ -50,6 +50,7 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
   private boolean closed = true;
   private boolean stopped = false;
 
+  private final String oscAddress;
   private InputThread inputThread = null;
 
   private class InputThread extends Thread {
@@ -132,8 +133,13 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
   }
 
   LXAudioInput(LX lx) {
+    this(lx, "/lx/audio/input");
+  }
+
+  public LXAudioInput(LX lx, String oscAddress) {
     super(lx, "Audio Input");
     this.lx = lx;
+    this.oscAddress = oscAddress;
 
     // Find system input devices...
     List<Device> devices = new ArrayList<Device>();
@@ -154,11 +160,10 @@ public class LXAudioInput extends LXAudioComponent implements LXOscComponent, Li
 
     this.device = new ObjectParameter<Device>("Device", devices.toArray(new Device[] {}));
     addParameter("device", this.device);
-
   }
 
   public String getOscAddress() {
-    return "/lx/audio/input";
+    return this.oscAddress;
   }
 
   @Override

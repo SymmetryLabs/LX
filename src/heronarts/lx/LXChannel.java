@@ -20,6 +20,7 @@
 
 package heronarts.lx;
 
+import heronarts.lx.audio.LXAudioInput;
 import heronarts.lx.blend.LXBlend;
 import heronarts.lx.clip.LXChannelClip;
 import heronarts.lx.clip.LXClip;
@@ -267,6 +268,8 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
   private LXBlend transition = null;
   private long transitionMillis = 0;
 
+  public final LXAudioInput audioInput;
+
   ChannelThread thread = new ChannelThread();
 
   private static int channelThreadCount = 1;
@@ -319,6 +322,9 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
     this.index = index;
     this.label.setDescription("The name of this channel");
     this.polyBuffer = new PolyBuffer(lx);
+    this.audioInput = new LXAudioInput(lx, getOscAddress() + "/audio");
+    this.audioInput.device.setDescription(
+        "Selects which audio input is routed to this channel");
 
     this.focusedPattern =
         new DiscreteParameter("Focused Pattern", 0, patterns.length)
@@ -847,12 +853,14 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
 
   private static final String KEY_PATTERNS = "patterns";
   private static final String KEY_PATTERN_INDEX = "patternIndex";
+  private static final String KEY_AUDIO_INPUT = "audioInput";
 
   @Override
   public void save(LX lx, JsonObject obj) {
     super.save(lx, obj);
     obj.addProperty(KEY_PATTERN_INDEX, this.activePatternIndex);
     obj.add(KEY_PATTERNS, LXSerializable.Utils.toArray(lx, this.mutablePatterns));
+    obj.add(KEY_AUDIO_INPUT, LXSerializable.Utils.toObject(lx, audioInput));
   }
 
   @Override
