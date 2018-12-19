@@ -421,6 +421,11 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
     if (nextPattern != null && nextPattern != activePattern) {
       message.dispatch(nextPattern);
     }
+    for (LXEffect effect : getEffects()) {
+      if (effect.isEnabled()) {
+        message.dispatch(effect);
+      }
+    }
   }
 
   final LXChannel setIndex(int index) {
