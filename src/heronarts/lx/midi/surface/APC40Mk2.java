@@ -20,7 +20,9 @@
 
 package heronarts.lx.midi.surface;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import heronarts.lx.LX;
@@ -105,6 +107,11 @@ public class APC40Mk2 extends LXMidiSurface {
   public static final int DETAIL_VIEW = 65;
 
   public static final int CHANNEL_CROSSFADE_GROUP = 66;
+
+  public static final int PARAMETER_PAGE_SELECT = 58;
+  public static final int PARAMETER_PAGE_NUM = 4;
+  public static final int PARAMETER_PAGE_MAX = PARAMETER_PAGE_SELECT + PARAMETER_PAGE_NUM - 1;
+
   public static final int MASTER_FOCUS = 80;
 
   public static final int STOP_ALL_CLIPS = 81;
@@ -151,6 +158,9 @@ public class APC40Mk2 extends LXMidiSurface {
 
   private boolean shiftOn = false;
   private boolean bankOn = true;
+
+  public static final int PARAMETERS_PER_PAGE = 8;
+  private int parameterPageIndex = 0;
 
   private final Map<LXChannel, ChannelListener> channelListeners = new HashMap<LXChannel, ChannelListener>();
 
@@ -219,54 +229,72 @@ public class APC40Mk2 extends LXMidiSurface {
           this.effect.enabled.removeListener(this);
         }
         if (this.device != null) {
-          for (int i = 0; i < this.knobs.length; ++i) {
-            if (this.knobs[i] != null) {
-              this.knobs[i].removeListener(this);
-            }
-          }
           this.device.controlSurfaceSemaphore.decrement();
         }
         this.pattern = null;
         this.effect = null;
         this.device = device;
+        parameterPageIndex = 0;
         if (this.device instanceof LXEffect) {
           this.effect = (LXEffect) this.device;
           this.effect.enabled.addListener(this);
         } else if (this.device instanceof LXPattern) {
           this.pattern = (LXPattern) this.device;
         }
-
-        int i = 0;
-        boolean isEnabled = false;
         if (this.device != null) {
+          boolean isEnabled = false;
           if (this.effect != null) {
             isEnabled = this.effect.isEnabled();
           } else if (this.pattern != null) {
             isEnabled = this.pattern == ((LXChannel) this.channel).getActivePattern();
           }
-          for (LXParameter p : this.device.getParameters()) {
-            if (i >= this.knobs.length) {
-              break;
-            }
-            if (p instanceof BoundedParameter || p instanceof DiscreteParameter) {
-              LXListenableNormalizedParameter parameter = (LXListenableNormalizedParameter) p;
-              this.knobs[i] = parameter;
-              parameter.addListener(this);
-              sendControlChange(0, DEVICE_KNOB_STYLE + i, p.getPolarity() == LXParameter.Polarity.BIPOLAR ? LED_STYLE_BIPOLAR : LED_STYLE_UNIPOLAR);
-              double normalized = (parameter instanceof CompoundParameter) ?
-                ((CompoundParameter) parameter).getBaseNormalized() :
-                parameter.getNormalized();
-              sendControlChange(0, DEVICE_KNOB + i, (int) (normalized * 127));
-              ++i;
-            }
-          }
-          this.device.controlSurfaceSemaphore.increment();
+          sendNoteOn(0, DEVICE_ON_OFF, isEnabled ? LED_ON : LED_OFF);
+
+          registerKnobs();
         }
-        sendNoteOn(0, DEVICE_ON_OFF, isEnabled ? LED_ON : LED_OFF);
-        while (i < this.knobs.length) {
-          sendControlChange(0, DEVICE_KNOB_STYLE + i, LED_STYLE_OFF);
+      }
+    }
+
+    void registerKnobs() {
+      for (int i = 0; i < this.knobs.length; ++i) {
+        if (this.knobs[i] != null) {
+          this.knobs[i].removeListener(this);
+          this.knobs[i] = null;
+        }
+      }
+
+      int numToSkip = parameterPageIndex * PARAMETERS_PER_PAGE;
+      int i = 0;
+      for (LXParameter p : device.getParameters()) {
+        if (i >= this.knobs.length) {
+          break;
+        }
+        if (p instanceof BoundedParameter || p instanceof DiscreteParameter) {
+          if (numToSkip > 0) {
+            numToSkip--;
+            continue;
+          }
+          LXListenableNormalizedParameter parameter = (LXListenableNormalizedParameter) p;
+          this.knobs[i] = parameter;
+          parameter.addListener(this);
+          sendControlChange(0, DEVICE_KNOB_STYLE + i,
+              p.getPolarity() == LXParameter.Polarity.BIPOLAR ? LED_STYLE_BIPOLAR
+                  : LED_STYLE_UNIPOLAR);
+          double normalized = (parameter instanceof CompoundParameter) ?
+              ((CompoundParameter) parameter).getBaseNormalized() :
+              parameter.getNormalized();
+          sendControlChange(0, DEVICE_KNOB + i, (int) (normalized * 127));
           ++i;
         }
+      }
+      this.device.controlSurfaceSemaphore.increment();
+      while (i < this.knobs.length) {
+        sendControlChange(0, DEVICE_KNOB_STYLE + i, LED_STYLE_OFF);
+        this.knobs[i] = null;
+        ++i;
+      }
+      for (i = 0; i < PARAMETER_PAGE_NUM; i++) {
+        sendNoteOn(LED_MODE_PRIMARY, PARAMETER_PAGE_SELECT + i, parameterPageIndex == i ? LED_ON : LED_OFF);
       }
     }
 
@@ -782,6 +810,11 @@ public class APC40Mk2 extends LXMidiSurface {
         }
         return;
       }
+
+      if (pitch >= PARAMETER_PAGE_SELECT && pitch <= PARAMETER_PAGE_MAX) {
+        parameterPageIndex = pitch - PARAMETER_PAGE_SELECT;
+        this.deviceListener.registerKnobs();
+      }
     }
 
     // Channel messages
@@ -790,7 +823,7 @@ public class APC40Mk2 extends LXMidiSurface {
       if (!on) {
         return;
       }
-      switch (note.getPitch()) {
+      switch (pitch) {
       case CHANNEL_ARM:
         channel.arm.toggle();
         return;
