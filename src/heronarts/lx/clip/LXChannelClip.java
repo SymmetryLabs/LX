@@ -79,6 +79,9 @@ public class LXChannelClip extends LXClip implements LXChannel.Listener, LXChann
   public void indexChanged(LXChannel channel) {}
 
   @Override
+  public void controlColumnChanged(LXChannel channel) {}
+
+  @Override
   public void patternAdded(LXChannel channel, LXPattern pattern) {
     registerComponent(pattern);
   }

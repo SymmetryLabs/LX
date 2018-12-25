@@ -27,6 +27,8 @@ import com.symmetrylabs.color.Spaces;
 import com.symmetrylabs.util.artnet.ArtNetEngine;
 import com.symmetrylabs.util.dmx.DMXEngine;
 import com.symmetrylabs.util.dmx.LXEngineDMXManager;
+import com.symmetrylabs.util.dmx.LXParameterChangeDMXHandler;
+
 import heronarts.lx.audio.LXAudioEngine;
 import heronarts.lx.blend.AddBlend;
 import heronarts.lx.blend.DarkestBlend;
@@ -121,6 +123,12 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
 
   private final List<LXChannel> mutableChannels = new ArrayList<LXChannel>();
   public final List<LXChannel> channels = Collections.unmodifiableList(this.mutableChannels);
+
+  private final LXParameterListener controlSurfaceMappedListener = new LXParameterListener() {
+    @Override public void onParameterChanged(LXParameter parameter) {
+      updateChannelIndexes();
+    }
+  };
 
   public final LXMasterChannel masterChannel;
 
@@ -862,6 +870,25 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
     return this.mutableChannels.get(channelIndex);
   }
 
+  public LXChannel getChannelByControlColumn(int controlColumn) {
+    for (LXChannel channel : channels) {
+      if (channel.getControlColumn() == controlColumn) {
+        return channel;
+      }
+    }
+    return null;
+  }
+
+  public int getNumControlColumns() {
+    int columns = 0;
+    for (LXChannel channel : channels) {
+      if (channel.getControlColumn() >= 0) {
+        columns++;
+      }
+    }
+    return columns;
+  }
+
   public LXChannel getChannel(String label) {
     for (LXChannel channel : this.mutableChannels) {
       if (channel.getLabel().equals(label)) {
@@ -887,15 +914,25 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
     return this;
   }
 
+  public int getFocusedControlColumn() {
+    LXBus bus = getFocusedChannel();
+    if (bus instanceof LXChannel) {
+      return ((LXChannel) bus).getControlColumn();
+    }
+    return -1;
+  }
+
   public LXChannel addChannel() {
     return addChannel(new LXPattern[] { new SolidColorPattern(lx) });
   }
 
   public LXChannel addChannel(LXPattern[] patterns) {
-    LXChannel channel = new LXChannel(lx, this.mutableChannels.size(), patterns);
+    LXChannel channel = new LXChannel(
+        lx, this.mutableChannels.size(), getNumControlColumns(), patterns);
     channel.setParent(this);
     this.mutableChannels.add(channel);
     this.focusedChannel.setRange(this.mutableChannels.size() + 1);
+    channel.controlSurfaceMapped.addListener(controlSurfaceMappedListener);
     for (Listener listener : this.listeners) {
       listener.channelAdded(this, channel);
     }
@@ -911,10 +948,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
       throw new UnsupportedOperationException("Cannot remove last channel from LXEngine");
     }
     if (this.mutableChannels.remove(channel)) {
-      int i = 0;
-      for (LXChannel c : this.mutableChannels) {
-        c.setIndex(i++);
-      }
+      updateChannelIndexes();
       boolean notified = false;
       if (this.focusedChannel.getValuei() > this.mutableChannels.size()) {
         notified = true;
@@ -927,8 +961,21 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
       for (Listener listener : this.listeners) {
         listener.channelRemoved(this, channel);
       }
-
+      channel.controlSurfaceMapped.removeListener(controlSurfaceMappedListener);
       channel.dispose();
+    }
+  }
+
+  protected void updateChannelIndexes() {
+    int i = 0;
+    int column = 0;
+    for (LXChannel c : this.channels) {
+      c.setIndex(i++);
+      if (c.controlSurfaceMapped.isOn()) {
+        c.setControlColumn(column++);
+      } else {
+        c.setControlColumn(-1);
+      }
     }
   }
 
@@ -936,10 +983,7 @@ public class LXEngine extends LXComponent implements LXOscComponent, LXModulatio
     boolean focused = channel.getIndex() == this.focusedChannel.getValuei();
     this.mutableChannels.remove(channel);
     this.mutableChannels.add(index, channel);
-    int i = 0;
-    for (LXChannel c: this.mutableChannels) {
-      c.setIndex(i++);
-    }
+    updateChannelIndexes();
     if (focused) {
       this.focusedChannel.setValue(index);
     }

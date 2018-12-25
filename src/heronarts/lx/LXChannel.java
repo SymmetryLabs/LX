@@ -74,6 +74,8 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
   public interface Listener extends LXBus.Listener {
     public void indexChanged(LXChannel channel);
 
+    public void controlColumnChanged(LXChannel channel);
+
     public void patternAdded(LXChannel channel, LXPattern pattern);
 
     public void patternRemoved(LXChannel channel, LXPattern pattern);
@@ -96,6 +98,10 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
 
     @Override
     public void indexChanged(LXChannel channel) {
+    }
+
+    @Override
+    public void controlColumnChanged(LXChannel channel) {
     }
 
     @Override
@@ -160,6 +166,12 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
    * The index of this channel in the engine.
    */
   private int index;
+
+  /**
+   * The column to which this channel is mapped on the control surface.
+   * -1 if unmapped.
+   */
+  private int controlColumn;
 
   /**
    * Which pattern is focused in the channel
@@ -244,6 +256,10 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
 
   public final ObjectParameter<LXBlend> blendMode;
 
+  public final BooleanParameter controlSurfaceMapped =
+      new BooleanParameter("SurfaceMapped", true)
+          .setDescription("Whether to include or skip this channel in the channels that are mapped to the control surface");
+
   public final MutableParameter controlSurfaceFocusIndex = (MutableParameter)
       new MutableParameter("SurfaceFocusIndex", 0)
           .setDescription("Control surface focus index");
@@ -317,9 +333,10 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
 
   ;
 
-  LXChannel(LX lx, int index, LXPattern[] patterns) {
+  LXChannel(LX lx, int index, int controlColumn, LXPattern[] patterns) {
     super(lx, "Channel-" + (index + 1));
     this.index = index;
+    this.controlColumn = controlColumn;
     this.label.setDescription("The name of this channel");
     this.polyBuffer = new PolyBuffer(lx);
     this.audioInput = new LXAudioInput(lx, getOscAddress() + "/audio");
@@ -438,8 +455,22 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
     return this;
   }
 
+  final LXChannel setControlColumn(int column) {
+    if (this.controlColumn != column) {
+      this.controlColumn = column;
+      for (LXBus.Listener listener : this.listeners) {
+        ((LXChannel.Listener)listener).controlColumnChanged(this);
+      }
+    }
+    return this;
+  }
+
   public final int getIndex() {
     return this.index;
+  }
+
+  public final int getControlColumn() {
+    return this.controlColumn;
   }
 
   @Override
