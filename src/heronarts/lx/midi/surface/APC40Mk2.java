@@ -60,9 +60,9 @@ public class APC40Mk2 extends LXMidiSurface {
   protected static final int LED_STYLE_UNIPOLAR = 2;
   protected static final int LED_STYLE_BIPOLAR = 3;
 
-  public static final int NUM_CHANNELS = 8;
+  public static final int NUM_COLUMNS = 8;
   public static final int CLIP_LAUNCH_ROWS = 5;
-  public static final int CLIP_LAUNCH_COLUMNS = NUM_CHANNELS;
+  public static final int CLIP_LAUNCH_COLUMNS = NUM_COLUMNS;
 
   // CCs
   public static final int CHANNEL_FADER = 7;
@@ -519,14 +519,14 @@ public class APC40Mk2 extends LXMidiSurface {
   }
 
   private void sendChannels() {
-    for (int column = 0; column < NUM_CHANNELS; ++column) {
+    for (int column = 0; column < NUM_COLUMNS; ++column) {
       sendChannel(column, lx.engine.getChannelByControlColumn(column));
     }
     sendChannelFocus();
   }
 
   private void sendChannelGrid() {
-    for (int column = 0; column < NUM_CHANNELS; ++column) {
+    for (int column = 0; column < NUM_COLUMNS; ++column) {
       LXChannel channel = lx.engine.getChannelByControlColumn(column);
       sendChannelPatterns(column, channel);
       sendChannelClips(column, channel);
@@ -608,7 +608,7 @@ public class APC40Mk2 extends LXMidiSurface {
     int focusedChannel = this.lx.engine.focusedChannel.getValuei();
     boolean masterFocused = (focusedChannel == this.lx.engine.channels.size());
     int column = lx.engine.getFocusedControlColumn();
-    for (int i = 0; i < NUM_CHANNELS; ++i) {
+    for (int i = 0; i < NUM_COLUMNS; ++i) {
       sendNoteOn(i, CHANNEL_FOCUS, (!masterFocused && (i == column)) ? LED_ON : LED_OFF);
     }
     sendNoteOn(0, MASTER_FOCUS, masterFocused ? LED_ON : LED_OFF);
@@ -738,6 +738,7 @@ public class APC40Mk2 extends LXMidiSurface {
     }
 
     // Global momentary
+    int column;
     if (on) {
       LXBus bus;
       switch (pitch) {
@@ -745,10 +746,21 @@ public class APC40Mk2 extends LXMidiSurface {
         lx.engine.focusedChannel.setValue(lx.engine.channels.size());
         return;
       case BANK_SELECT_LEFT:
-        this.lx.engine.focusedChannel.decrement(false);
+        column = lx.engine.getFocusedControlColumn();
+        if (column > 0) {
+          column--;
+          lx.engine.setFocusedChannel(lx.engine.getChannelByControlColumn(column));
+        }
         return;
       case BANK_SELECT_RIGHT:
-        this.lx.engine.focusedChannel.increment(false);
+        column = lx.engine.getFocusedControlColumn();
+        column++;
+        if (column < NUM_COLUMNS) {
+          LXChannel channel = lx.engine.getChannelByControlColumn(column);
+          if (channel != null) {
+            lx.engine.setFocusedChannel(channel);
+          }
+        }
         return;
       case BANK_SELECT_UP:
         bus = this.lx.engine.getFocusedChannel();
@@ -782,7 +794,7 @@ public class APC40Mk2 extends LXMidiSurface {
       }
 
       if (pitch >= CLIP_LAUNCH && pitch <= CLIP_LAUNCH_MAX) {
-        int column = (pitch - CLIP_LAUNCH) % CLIP_LAUNCH_COLUMNS;
+        column = (pitch - CLIP_LAUNCH) % CLIP_LAUNCH_COLUMNS;
         int row = CLIP_LAUNCH_ROWS - 1 - ((pitch - CLIP_LAUNCH) / CLIP_LAUNCH_COLUMNS);
         LXChannel channel = lx.engine.getChannelByControlColumn(column);
         if (channel != null) {
