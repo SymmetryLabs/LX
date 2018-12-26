@@ -268,6 +268,10 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
       new MutableParameter("SurfaceFocusLength", 0)
           .setDescription("Control surface focus length");
 
+    public final BoundedParameter speed =
+        new BoundedParameter("Speed", 1, 0, 2)
+        .setDescription("Overall speed adjustement to all components in this channel");
+
   private final List<LXPattern> mutablePatterns = new ArrayList<LXPattern>();
   public final List<LXPattern> patterns = Collections.unmodifiableList(mutablePatterns);
 
@@ -369,6 +373,7 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
     addParameter("transitionTimeSecs", this.transitionTimeSecs);
     addParameter("transitionBlendMode", this.transitionBlendMode);
     addParameter("autoDisable", this.autoDisable);
+    addParameter("speed", this.speed);
   }
 
   boolean shouldRun() {
@@ -790,6 +795,7 @@ public class LXChannel extends LXBus implements LXComponent.Renamable, PolyBuffe
   @Override
   public void loop(double deltaMs) {
     long loopStart = System.nanoTime();
+    deltaMs *= this.speed.getValue();
 
     // Run modulators and components
     super.loop(deltaMs);
